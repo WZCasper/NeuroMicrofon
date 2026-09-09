@@ -91,10 +91,15 @@ jobs:
 
       # Логи публикуются через отдельную ветку в самом git-репозитории —
       # так их можно получить обычным `git fetch`, без обращения к
-      # Azure Blob Storage, где хранятся полные логи Actions.
+      # Azure Blob Storage, где хранятся полные логи Actions. Работа ведётся
+      # в отдельном временном клоне, а не в рабочей директории джоба, чтобы
+      # оставшиеся после сборки файлы (bin/, obj/, *-output.txt) не мешали
+      # переключению веток.
       - name: Publish CI logs (always, for diagnostics)
         if: always()
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p /tmp/ci-output
           for f in restore-output.txt test-output.txt publish-output.txt installer-output.txt; do
@@ -103,19 +108,19 @@ jobs:
           echo "job_status=${{ job.status }}" > /tmp/ci-output/summary.txt
           echo "commit=${GITHUB_SHA}" >> /tmp/ci-output/summary.txt
 
+          rm -rf /tmp/ci-results-repo
+          REPO_URL="https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          git clone --depth 1 --branch ci-results "$REPO_URL" /tmp/ci-results-repo 2>/dev/null \
+            || git clone --depth 1 "$REPO_URL" /tmp/ci-results-repo
+
+          cd /tmp/ci-results-repo
           git config user.email "ci@neuromicrophone.local"
           git config user.name "NeuroMicrophone CI"
-
-          git fetch origin ci-results 2>/dev/null || true
-          if git show-ref --verify --quiet refs/remotes/origin/ci-results; then
-            git checkout -B ci-results origin/ci-results
-          else
-            git checkout --orphan ci-results
-          fi
-
-          find . -maxdepth 1 ! -name '.' ! -name '.git' -exec rm -rf {} +
+          git checkout --orphan ci-results-new
+          git rm -rf . > /dev/null 2>&1 || true
           cp /tmp/ci-output/*.txt .
-
           git add -A
-          git commit -m "CI output for ${GITHUB_SHA}" --allow-empty
+          git commit -m "CI output for ${GITHUB_SHA}"
+          git branch -D ci-results 2>/dev/null || true
+          git branch -m ci-results-new ci-results
           git push origin ci-results --force
