@@ -109,9 +109,9 @@ public partial class VuMeter : System.Windows.Controls.UserControl
 
         RmsBar.Fill = rmsFraction switch
         {
-            > 0.9 => (Brush)FindResource("DangerBrush"),
-            > 0.7 => (Brush)FindResource("SuccessBrush"),
-            _ => (Brush)FindResource("AccentBrush"),
+            > 0.9 => (System.Windows.Media.Brush)FindResource("DangerBrush"),
+            > 0.7 => (System.Windows.Media.Brush)FindResource("SuccessBrush"),
+            _ => (System.Windows.Media.Brush)FindResource("AccentBrush"),
         };
     }
 

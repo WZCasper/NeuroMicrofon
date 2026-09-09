@@ -8,7 +8,15 @@
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <!--
+      ImplicitUsings отключён НАМЕРЕННО: при одновременном UseWPF+UseWindowsForms
+      неявные global usings подключают System.Drawing и System.Windows.Forms
+      сразу во ВСЕ файлы проекта, из-за чего такие имена, как Brush, Application,
+      UserControl, становятся неоднозначными даже там, где WinForms явно не
+      используется. Все необходимые using-директивы прописаны в каждом файле
+      явно — это надёжнее, чем полагаться на автогенерируемые глобальные usings.
+    -->
     <AssemblyName>NeuroMicrophone</AssemblyName>
     <RootNamespace>NeuroMicrophone</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>

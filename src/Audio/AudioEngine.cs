@@ -101,7 +101,7 @@ public sealed class AudioEngine : IDisposable
         {
             // Буфер 20 мс в общем режиме WASAPI — компромисс между низкой
             // задержкой (требование "< 20 мс") и устойчивостью к подгрузкам CPU.
-            _capture = new WasapiCapture(captureDevice, useEventSyncContext: false, audioBufferMillisecondsLength: 20);
+            _capture = new WasapiCapture(captureDevice, useEventSync: false, audioBufferMillisecondsLength: 20);
             _capture.DataAvailable += OnCaptureDataAvailable;
             _capture.RecordingStopped += OnRecordingStopped;
 
