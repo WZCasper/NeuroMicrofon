@@ -1,27 +1,16 @@
 name: Build NeuroMicrophone
 
 # Позволяет получить настоящий, скомпилированный .exe без установки Visual
-# Studio на своём компьютере: GitHub бесплатно предоставляет для этого
+# Studio на своём компьютере — GitHub бесплатно предоставляет для этого
 # реальную виртуальную машину с Windows.
-#
-# Как использовать:
-#   1) Создайте пустой репозиторий на github.com и загрузите в него
-#      содержимое этой папки (веб-интерфейс GitHub: "Add file" →
-#      "Upload files", или git push, если вы им пользуетесь).
-#   2) Перейдите во вкладку "Actions" репозитория — сборка запустится
-#      автоматически. Либо запустите её вручную: Actions → "Build
-#      NeuroMicrophone" → "Run workflow".
-#   3) Дождитесь зелёной галочки (обычно 3-5 минут) и откройте
-#      завершившийся запуск — внизу страницы будут два файла для
-#      скачивания (Artifacts): "NeuroMicrophone-app" (папка с готовой
-#      программой) и "NeuroMicrophone-Setup" (собранный установщик,
-#      если пакет драйвера был предоставлен — иначе просто убедитесь,
-#      что первый артефакт собрался успешно).
 
 on:
   push:
     branches: [ main, master ]
   workflow_dispatch: {}
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -37,13 +26,19 @@ jobs:
           dotnet-version: '8.0.x'
 
       - name: Restore
-        run: dotnet restore src/NeuroMicrophone.csproj
+        run: |
+          dotnet restore src/NeuroMicrophone.csproj 2>&1 | Tee-Object -FilePath restore-output.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Run unit tests
-        run: dotnet test tests/NeuroMicrophone.Tests/NeuroMicrophone.Tests.csproj --configuration Release
+        run: |
+          dotnet test tests/NeuroMicrophone.Tests/NeuroMicrophone.Tests.csproj --configuration Release 2>&1 | Tee-Object -FilePath test-output.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Publish application
-        run: dotnet publish src/NeuroMicrophone.csproj -c Release -r win-x64 --self-contained false
+        run: |
+          dotnet publish src/NeuroMicrophone.csproj -c Release -r win-x64 --self-contained false 2>&1 | Tee-Object -FilePath publish-output.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Upload application (unpacked folder)
         uses: actions/upload-artifact@v4
@@ -55,7 +50,10 @@ jobs:
         run: choco install innosetup -y --no-progress
 
       - name: Build installer
-        run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "Installer\setup_script.iss"'
+        continue-on-error: true
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "Installer\setup_script.iss" 2>&1 | Tee-Object -FilePath installer-output.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Upload installer (.exe)
         uses: actions/upload-artifact@v4
@@ -63,3 +61,61 @@ jobs:
           name: NeuroMicrophone-Setup
           path: Installer\Output\NeuroMicrophone_Setup.exe
           if-no-files-found: warn
+
+      - name: Package release assets
+        if: success()
+        shell: pwsh
+        run: |
+          Compress-Archive -Path 'src\bin\Release\net8.0-windows\win-x64\publish\*' -DestinationPath 'NeuroMicrophone-app.zip'
+
+      # Артефакты actions/upload-artifact скачиваются через Azure Blob Storage,
+      # к которому нет доступа из некоторых сетевых окружений. GitHub Release
+      # раздаёт файлы напрямую с github.com — надёжный запасной путь получить
+      # реальный собранный файл.
+      - name: Publish GitHub Release with build results
+        if: success()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ASSETS=(NeuroMicrophone-app.zip)
+          if [ -f "Installer/Output/NeuroMicrophone_Setup.exe" ]; then
+            ASSETS+=(Installer/Output/NeuroMicrophone_Setup.exe)
+          fi
+          gh release delete "build-latest" --yes --repo "${{ github.repository }}" 2>/dev/null || true
+          git push origin ":refs/tags/build-latest" 2>/dev/null || true
+          gh release create "build-latest" "${ASSETS[@]}" \
+            --title "Автосборка (коммит ${GITHUB_SHA:0:7})" \
+            --notes "Автоматическая сборка из workflow. Коммит: ${GITHUB_SHA}" \
+            --repo "${{ github.repository }}"
+
+      # Логи публикуются через отдельную ветку в самом git-репозитории —
+      # так их можно получить обычным `git fetch`, без обращения к
+      # Azure Blob Storage, где хранятся полные логи Actions.
+      - name: Publish CI logs (always, for diagnostics)
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p /tmp/ci-output
+          for f in restore-output.txt test-output.txt publish-output.txt installer-output.txt; do
+            if [ -f "$f" ]; then cp "$f" /tmp/ci-output/; fi
+          done
+          echo "job_status=${{ job.status }}" > /tmp/ci-output/summary.txt
+          echo "commit=${GITHUB_SHA}" >> /tmp/ci-output/summary.txt
+
+          git config user.email "ci@neuromicrophone.local"
+          git config user.name "NeuroMicrophone CI"
+
+          git fetch origin ci-results 2>/dev/null || true
+          if git show-ref --verify --quiet refs/remotes/origin/ci-results; then
+            git checkout -B ci-results origin/ci-results
+          else
+            git checkout --orphan ci-results
+          fi
+
+          find . -maxdepth 1 ! -name '.' ! -name '.git' -exec rm -rf {} +
+          cp /tmp/ci-output/*.txt .
+
+          git add -A
+          git commit -m "CI output for ${GITHUB_SHA}" --allow-empty
+          git push origin ci-results --force
