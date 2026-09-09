@@ -1,0 +1,166 @@
+<Window x:Class="NeuroMicrophone.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:NeuroMicrophone.Controls"
+        Title="NeuroMicrophone"
+        Height="760" Width="460"
+        MinHeight="600" MinWidth="440"
+        WindowStartupLocation="CenterScreen">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="20">
+
+            <!-- Заголовок / логотип -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                <Ellipse Width="14" Height="14" Fill="{StaticResource AccentBrush}" Margin="0,0,8,0"/>
+                <TextBlock Text="NeuroMicrophone" FontSize="20" FontWeight="Bold"/>
+            </StackPanel>
+
+            <!-- Статус / ошибки -->
+            <Border Background="{StaticResource SurfaceBrush}" CornerRadius="8" Padding="12" Margin="0,0,0,12"
+                    Visibility="{Binding StatusMessage, Converter={StaticResource NullToVisibilityConverter}}">
+                <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource DangerBrush}" TextWrapping="Wrap"/>
+            </Border>
+
+            <!-- Устройства -->
+            <StackPanel Margin="0,0,0,16">
+                <TextBlock Text="Физический микрофон" Style="{StaticResource SecondaryTextStyle}" Margin="0,0,0,4"/>
+                <ComboBox ItemsSource="{Binding InputDevices}" SelectedItem="{Binding SelectedInputDevice}" Margin="0,0,0,10"/>
+
+                <TextBlock Text="Виртуальный вывод (NeuroMicrophone Cable)" Style="{StaticResource SecondaryTextStyle}" Margin="0,0,0,4"/>
+                <ComboBox ItemsSource="{Binding OutputDevices}" SelectedItem="{Binding SelectedOutputDevice}"/>
+            </StackPanel>
+
+            <!-- Драйвер -->
+            <Border Background="{StaticResource SurfaceBrush}" CornerRadius="10" Padding="16" Margin="0,0,0,16"
+                    Visibility="{Binding IsDriverInstalled, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                <StackPanel>
+                    <TextBlock TextWrapping="Wrap" Style="{StaticResource SecondaryTextStyle}" Foreground="{StaticResource DangerBrush}"
+                               Margin="0,0,0,10">
+                        Виртуальное устройство «NeuroMicrophone Cable» не найдено.
+                        Если пакет драйвера уже лежит в папке Driver\Package рядом с приложением, нажмите кнопку ниже.
+                    </TextBlock>
+                    <Button Content="Установить драйвер" Style="{StaticResource SecondaryButtonStyle}"
+                            Command="{Binding InstallDriverCommand}" HorizontalAlignment="Left"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Пресеты -->
+            <StackPanel Margin="0,0,0,16">
+                <TextBlock Text="Пресет" Style="{StaticResource SecondaryTextStyle}" Margin="0,0,0,4"/>
+                <ComboBox ItemsSource="{Binding Presets}" SelectedItem="{Binding SelectedPreset}"/>
+            </StackPanel>
+
+            <!-- Автонастройка -->
+            <Border Background="{StaticResource SurfaceBrush}" CornerRadius="10" Padding="16" Margin="0,0,0,16">
+                <StackPanel>
+                    <Button Content="Автонастройка"
+                            Style="{StaticResource PrimaryButtonStyle}"
+                            Command="{Binding AutoTuneCommand}"
+                            HorizontalAlignment="Stretch"
+                            Margin="0,0,0,10"/>
+                    <ProgressBar Value="{Binding CalibrationProgress, Mode=OneWay}" Minimum="0" Maximum="100" Margin="0,0,0,8"/>
+                    <TextBlock Text="{Binding CalibrationInstruction}" TextWrapping="Wrap" Style="{StaticResource SecondaryTextStyle}"/>
+                </StackPanel>
+            </Border>
+
+            <!-- VU-метр + Gain Reduction -->
+            <Border Background="{StaticResource SurfaceBrush}" CornerRadius="10" Padding="16" Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="Уровень сигнала (обработанный)" Style="{StaticResource SecondaryTextStyle}" Margin="0,0,0,8"/>
+                    <controls:VuMeter RmsDb="{Binding RmsLevel}" PeakDb="{Binding PeakLevel}" Height="28" Margin="0,0,0,14"/>
+
+                    <TextBlock Text="Компрессор — снижение усиления" Style="{StaticResource SecondaryTextStyle}" Margin="0,0,0,4"/>
+                    <ProgressBar Style="{StaticResource GainReductionBarStyle}"
+                                 Value="{Binding CompressorGainReductionDb, Converter={StaticResource GainReductionToPercentConverter}, Mode=OneWay}"
+                                 Minimum="0" Maximum="100" Margin="0,0,0,10"/>
+
+                    <TextBlock Text="Лимитер — снижение усиления" Style="{StaticResource SecondaryTextStyle}" Margin="0,0,0,4"/>
+                    <ProgressBar Style="{StaticResource GainReductionBarStyle}"
+                                 Value="{Binding LimiterGainReductionDb, Converter={StaticResource GainReductionToPercentConverter}, Mode=OneWay}"
+                                 Minimum="0" Maximum="100"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Прослушать себя -->
+            <Border Background="{StaticResource SurfaceBrush}" CornerRadius="10" Padding="16" Margin="0,0,0,16">
+                <StackPanel>
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Прослушать себя" FontWeight="SemiBold"/>
+                            <TextBlock Text="Используйте наушники — иначе возможна обратная связь (эхо)."
+                                       Style="{StaticResource SecondaryTextStyle}" TextWrapping="Wrap"/>
+                        </StackPanel>
+                        <ToggleButton Grid.Column="1" Style="{StaticResource MuteToggleStyle}" IsChecked="{Binding IsMonitoring}"/>
+                    </Grid>
+                    <ComboBox ItemsSource="{Binding OutputDevices}" SelectedItem="{Binding SelectedMonitorDevice}"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Заглушка микрофона -->
+            <Border Background="{StaticResource SurfaceBrush}" CornerRadius="10" Padding="16" Margin="0,0,0,16">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="Заглушка микрофона" FontWeight="SemiBold"/>
+                        <TextBlock Text="Горячая клавиша: Ctrl + Shift + M" Style="{StaticResource SecondaryTextStyle}"/>
+                    </StackPanel>
+                    <ToggleButton Grid.Column="1" Style="{StaticResource MuteToggleStyle}" IsChecked="{Binding IsMuted}"/>
+                </Grid>
+            </Border>
+
+            <!-- Расширенные настройки -->
+            <Expander Header="Расширенные настройки" Margin="0,0,0,16">
+                <Border Background="{StaticResource SurfaceBrush}" CornerRadius="10" Padding="16" Margin="0,10,0,0">
+                    <StackPanel>
+
+                        <Grid Margin="0,0,0,4">
+                            <TextBlock Text="Порог шумового гейта" Style="{StaticResource SecondaryTextStyle}" HorizontalAlignment="Left"/>
+                            <TextBlock Text="{Binding GateThresholdDb, StringFormat={}{0:F0} дБ}" Style="{StaticResource SecondaryTextStyle}" HorizontalAlignment="Right"/>
+                        </Grid>
+                        <Slider Minimum="-70" Maximum="-20" Value="{Binding GateThresholdDb}" Margin="0,0,0,14"/>
+
+                        <Grid Margin="0,0,0,4">
+                            <TextBlock Text="Сила шумоподавления" Style="{StaticResource SecondaryTextStyle}" HorizontalAlignment="Left"/>
+                            <TextBlock Text="{Binding DenoiserWetMix, StringFormat={}{0:P0}}" Style="{StaticResource SecondaryTextStyle}" HorizontalAlignment="Right"/>
+                        </Grid>
+                        <Slider Minimum="0" Maximum="1" Value="{Binding DenoiserWetMix}" Margin="0,0,0,14"/>
+
+                        <Grid Margin="0,0,0,4">
+                            <TextBlock Text="Целевой уровень AGC" Style="{StaticResource SecondaryTextStyle}" HorizontalAlignment="Left"/>
+                            <TextBlock Text="{Binding AgcTargetLevelDb, StringFormat={}{0:F0} дБFS}" Style="{StaticResource SecondaryTextStyle}" HorizontalAlignment="Right"/>
+                        </Grid>
+                        <Slider Minimum="-30" Maximum="-6" Value="{Binding AgcTargetLevelDb}" Margin="0,0,0,14"/>
+
+                        <Grid Margin="0,0,0,4">
+                            <TextBlock Text="Порог компрессора" Style="{StaticResource SecondaryTextStyle}" HorizontalAlignment="Left"/>
+                            <TextBlock Text="{Binding CompressorThresholdDb, StringFormat={}{0:F0} дБFS}" Style="{StaticResource SecondaryTextStyle}" HorizontalAlignment="Right"/>
+                        </Grid>
+                        <Slider Minimum="-30" Maximum="0" Value="{Binding CompressorThresholdDb}" Margin="0,0,0,14"/>
+
+                        <Grid Margin="0,0,0,4">
+                            <TextBlock Text="Коэффициент компрессора" Style="{StaticResource SecondaryTextStyle}" HorizontalAlignment="Left"/>
+                            <TextBlock Text="{Binding CompressorRatio, StringFormat={}{0:F1}:1}" Style="{StaticResource SecondaryTextStyle}" HorizontalAlignment="Right"/>
+                        </Grid>
+                        <Slider Minimum="1" Maximum="10" Value="{Binding CompressorRatio}" Margin="0,0,0,4"/>
+
+                        <Separator Margin="0,10,0,10" Background="{StaticResource SurfaceLightBrush}"/>
+
+                        <CheckBox Content="Запускать при старте Windows" IsChecked="{Binding IsAutostartEnabled}" Margin="0,0,0,10"/>
+
+                        <Button Content="Удалить драйвер" Style="{StaticResource SecondaryButtonStyle}"
+                                Command="{Binding UninstallDriverCommand}" HorizontalAlignment="Left"
+                                Visibility="{Binding IsDriverInstalled, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    </StackPanel>
+                </Border>
+            </Expander>
+
+        </StackPanel>
+    </ScrollViewer>
+</Window>

@@ -1,0 +1,65 @@
+name: Build NeuroMicrophone
+
+# Позволяет получить настоящий, скомпилированный .exe без установки Visual
+# Studio на своём компьютере: GitHub бесплатно предоставляет для этого
+# реальную виртуальную машину с Windows.
+#
+# Как использовать:
+#   1) Создайте пустой репозиторий на github.com и загрузите в него
+#      содержимое этой папки (веб-интерфейс GitHub: "Add file" →
+#      "Upload files", или git push, если вы им пользуетесь).
+#   2) Перейдите во вкладку "Actions" репозитория — сборка запустится
+#      автоматически. Либо запустите её вручную: Actions → "Build
+#      NeuroMicrophone" → "Run workflow".
+#   3) Дождитесь зелёной галочки (обычно 3-5 минут) и откройте
+#      завершившийся запуск — внизу страницы будут два файла для
+#      скачивания (Artifacts): "NeuroMicrophone-app" (папка с готовой
+#      программой) и "NeuroMicrophone-Setup" (собранный установщик,
+#      если пакет драйвера был предоставлен — иначе просто убедитесь,
+#      что первый артефакт собрался успешно).
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore src/NeuroMicrophone.csproj
+
+      - name: Run unit tests
+        run: dotnet test tests/NeuroMicrophone.Tests/NeuroMicrophone.Tests.csproj --configuration Release
+
+      - name: Publish application
+        run: dotnet publish src/NeuroMicrophone.csproj -c Release -r win-x64 --self-contained false
+
+      - name: Upload application (unpacked folder)
+        uses: actions/upload-artifact@v4
+        with:
+          name: NeuroMicrophone-app
+          path: src/bin/Release/net8.0-windows/win-x64/publish/
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Build installer
+        run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "Installer\setup_script.iss"'
+
+      - name: Upload installer (.exe)
+        uses: actions/upload-artifact@v4
+        with:
+          name: NeuroMicrophone-Setup
+          path: Installer\Output\NeuroMicrophone_Setup.exe
+          if-no-files-found: warn

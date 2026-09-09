@@ -1,0 +1,16 @@
+<UserControl x:Class="NeuroMicrophone.Controls.VuMeter"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Name="Root">
+    <Border CornerRadius="4" Background="{StaticResource SurfaceLightBrush}" ClipToBounds="True">
+        <Grid x:Name="TrackGrid">
+            <Rectangle x:Name="RmsBar"
+                       HorizontalAlignment="Left"
+                       Fill="{StaticResource AccentBrush}"/>
+            <Rectangle x:Name="PeakMarker"
+                       Width="2"
+                       HorizontalAlignment="Left"
+                       Fill="{StaticResource DangerBrush}"/>
+        </Grid>
+    </Border>
+</UserControl>

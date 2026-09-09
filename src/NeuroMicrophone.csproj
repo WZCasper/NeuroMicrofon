@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>NeuroMicrophone</AssemblyName>
+    <RootNamespace>NeuroMicrophone</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <LangVersion>latest</LangVersion>
+    <Version>1.0.0</Version>
+    <Platforms>x64</Platforms>
+    <Company>NeuroMicrophone</Company>
+    <Product>NeuroMicrophone</Product>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- NAudio: WASAPI-захват/вывод, ресемплинг, работа с устройствами. -->
+    <PackageReference Include="NAudio" Version="2.2.1" />
+    <!--
+      Microsoft.Win32.Registry: используется AutostartService для чтения/записи
+      ключа автозапуска в HKCU. На net8.0-windows эти типы обычно доступны и без
+      явного пакета (входят в Windows Desktop runtime pack), но пакет добавлен
+      явно, чтобы устранить любую неоднозначность при сборке.
+    -->
+    <PackageReference Include="Microsoft.Win32.Registry" Version="5.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Нативная библиотека шумоподавления RNNoise (rnnoise.dll, x64).
+      Если файла нет — приложение не упадёт: RnnoiseDenoiser определяет
+      отсутствие библиотеки во время выполнения и просто пропускает
+      шумоподавление (сигнал идёт "как есть" дальше по цепочке).
+      Инструкция по сборке — в README.md, раздел "RNNoise".
+    -->
+    <None Include="native\rnnoise.dll" Condition="Exists('native\rnnoise.dll')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>
