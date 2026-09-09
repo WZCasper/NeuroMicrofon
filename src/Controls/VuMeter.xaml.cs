@@ -15,7 +15,7 @@ namespace NeuroMicrophone.Controls;
 /// мгновенного значения, дёргающегося кадр в кадр.
 /// Диапазон шкалы: от MinDb (тихо) до MaxDb (0 dBFS, максимум).
 /// </summary>
-public partial class VuMeter : UserControl
+public partial class VuMeter : System.Windows.Controls.UserControl
 {
     public const double MinDb = -60.0;
     public const double MaxDb = 0.0;

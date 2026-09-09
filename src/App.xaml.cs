@@ -13,7 +13,7 @@ namespace NeuroMicrophone;
 ///  - глобальный перехват необработанных исключений с записью в лог,
 ///    чтобы приложение не "молча" падало без диагностики.
 /// </summary>
-public partial class App : Application
+public partial class App : System.Windows.Application
 {
     private const string SingleInstanceMutexName = "NeuroMicrophone_SingleInstance_Mutex";
 
@@ -26,7 +26,7 @@ public partial class App : Application
         _singleInstanceMutex = new Mutex(initiallyOwned: true, name: SingleInstanceMutexName, createdNew: out bool isNewInstance);
         if (!isNewInstance)
         {
-            MessageBox.Show(
+            System.Windows.MessageBox.Show(
                 "NeuroMicrophone уже запущен. Проверьте значок в области уведомлений.",
                 "NeuroMicrophone",
                 MessageBoxButton.OK,
@@ -43,7 +43,7 @@ public partial class App : Application
     {
         LogException(e.Exception);
 
-        MessageBox.Show(
+        System.Windows.MessageBox.Show(
             $"Произошла непредвиденная ошибка:\n{e.Exception.Message}\n\nПодробности сохранены в журнал.",
             "NeuroMicrophone — ошибка",
             MessageBoxButton.OK,
