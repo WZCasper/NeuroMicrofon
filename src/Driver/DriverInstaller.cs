@@ -3,7 +3,6 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Security.Principal;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using NAudio.CoreAudioApi;
@@ -40,8 +39,15 @@ public sealed class DriverInstallResult
 
 /// <summary>
 /// Проверяет наличие виртуального устройства "NeuroMicrophone Cable" в
-/// системе и умеет (при наличии прав администратора и корректно подписанного
-/// INF-пакета) установить его через штатную системную утилиту pnputil.exe.
+/// системе и умеет (при корректно подписанном INF-пакете) установить его
+/// через штатную системную утилиту pnputil.exe.
+///
+/// Само приложение НЕ требует прав администратора для запуска (см.
+/// app.manifest — level="asInvoker"): администратор нужен только для
+/// самих операций pnputil, поэтому повышение прав запрашивается точечно,
+/// непосредственно на время конкретного вызова InstallDriverAsync /
+/// UninstallDriverAsync (через ShellExecute с verb="runas"), а не для
+/// всего приложения сразу.
 ///
 /// ВАЖНО: начиная с Windows 10, ядро проверяет цифровую подпись драйверов
 /// (Driver Signature Enforcement). Эта проверка выполняется самой ОС и
@@ -88,7 +94,7 @@ public sealed class DriverInstaller
 
     /// <summary>
     /// Устанавливает драйвер из указанного INF-файла через pnputil.exe.
-    /// Требует запуска процесса с правами администратора (см. app.manifest).
+    /// Запрашивает повышение прав (UAC) точечно, только на время этого вызова.
     /// </summary>
     public async Task<DriverInstallResult> InstallDriverAsync(string infPath)
     {
@@ -97,42 +103,20 @@ public sealed class DriverInstaller
             return DriverInstallResult.Failure($"INF-файл не найден: {infPath}");
         }
 
-        if (!IsRunningAsAdministrator())
-        {
-            return DriverInstallResult.Failure("Требуются права администратора для установки драйвера. Перезапустите приложение от имени администратора.");
-        }
-
         try
         {
-            var startInfo = new ProcessStartInfo
-            {
-                FileName = "pnputil.exe",
-                Arguments = $"/add-driver \"{infPath}\" /install",
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true,
-            };
+            (int exitCode, string output) = await RunElevatedCommandAsync(
+                $"pnputil.exe /add-driver \"{infPath}\" /install").ConfigureAwait(false);
 
-            using var process = Process.Start(startInfo);
-            if (process == null)
-            {
-                return DriverInstallResult.Failure("Не удалось запустить pnputil.exe.");
-            }
-
-            string standardOutput = await process.StandardOutput.ReadToEndAsync().ConfigureAwait(false);
-            string standardError = await process.StandardError.ReadToEndAsync().ConfigureAwait(false);
-            await process.WaitForExitAsync().ConfigureAwait(false);
-
-            if (process.ExitCode == 0)
+            if (exitCode == 0)
             {
                 string? publishedName = await FindPublishedDriverInfNameAsync(Path.GetFileName(infPath)).ConfigureAwait(false);
-                return DriverInstallResult.Success(standardOutput, publishedName);
+                return DriverInstallResult.Success(output, publishedName);
             }
 
             return DriverInstallResult.Failure(
-                $"pnputil завершился с кодом {process.ExitCode}. Наиболее вероятная причина — " +
-                $"INF-пакет не подписан действительным сертификатом (см. README.md). Вывод: {standardError}");
+                $"pnputil завершился с кодом {exitCode}. Наиболее вероятная причина — " +
+                $"INF-пакет не подписан действительным сертификатом (см. README.md). Вывод: {output}");
         }
         catch (Win32Exception ex) when (ex.NativeErrorCode == 1223)
         {
@@ -148,17 +132,14 @@ public sealed class DriverInstaller
     /// <summary>
     /// Ищет "опубликованное" имя INF (вида oemNN.inf) в хранилище драйверов
     /// Windows по исходному имени файла драйвера, разбирая вывод
-    /// "pnputil /enum-drivers". Этот способ надёжнее, чем парсинг вывода
-    /// команды установки: его можно вызвать в любой момент — даже спустя
-    /// долгое время после установки, — а не только сразу после неё.
+    /// "pnputil /enum-drivers". Это операция чтения — в отличие от
+    /// add-driver/delete-driver, прав администратора не требует, поэтому
+    /// выполняется напрямую, без запроса повышения.
     ///
     /// Примечание: текст вывода pnputil локализован под язык интерфейса
     /// Windows, поэтому разбор ориентируется на английские подписи
-    /// "Published Name" / "Original Name", которые используются на
-    /// англоязычных системах. На локализованных системах имена полей вывода
-    /// могут отличаться — в этом случае метод вернёт null, и стоит либо
-    /// сохранять имя во время установки (см. InstallDriverAsync), либо
-    /// определить локализованные подписи для конкретного языка.
+    /// "Published Name" / "Original Name". На локализованных системах
+    /// имена полей вывода могут отличаться — в этом случае метод вернёт null.
     /// </summary>
     public async Task<string?> FindPublishedDriverInfNameAsync(string originalInfFileName)
     {
@@ -214,15 +195,11 @@ public sealed class DriverInstaller
     /// хранилище драйверов (вида oemNN.inf), а не исходное имя файла.
     /// Если publishedInfName не передан, метод сначала попробует
     /// определить его сам через FindPublishedDriverInfNameAsync, используя
-    /// originalInfFileNameForLookup.
+    /// originalInfFileNameForLookup. Запрашивает повышение прав точечно,
+    /// только на время этого вызова.
     /// </summary>
     public async Task<DriverInstallResult> UninstallDriverAsync(string? publishedInfName, string? originalInfFileNameForLookup = null)
     {
-        if (!IsRunningAsAdministrator())
-        {
-            return DriverInstallResult.Failure("Требуются права администратора для удаления драйвера.");
-        }
-
         if (string.IsNullOrWhiteSpace(publishedInfName) && !string.IsNullOrWhiteSpace(originalInfFileNameForLookup))
         {
             publishedInfName = await FindPublishedDriverInfNameAsync(originalInfFileNameForLookup).ConfigureAwait(false);
@@ -237,28 +214,16 @@ public sealed class DriverInstaller
 
         try
         {
-            var startInfo = new ProcessStartInfo
-            {
-                FileName = "pnputil.exe",
-                Arguments = $"/delete-driver \"{publishedInfName}\" /uninstall /force",
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true,
-            };
+            (int exitCode, string output) = await RunElevatedCommandAsync(
+                $"pnputil.exe /delete-driver \"{publishedInfName}\" /uninstall /force").ConfigureAwait(false);
 
-            using var process = Process.Start(startInfo);
-            if (process == null)
-            {
-                return DriverInstallResult.Failure("Не удалось запустить pnputil.exe.");
-            }
-
-            string standardOutput = await process.StandardOutput.ReadToEndAsync().ConfigureAwait(false);
-            await process.WaitForExitAsync().ConfigureAwait(false);
-
-            return process.ExitCode == 0
-                ? DriverInstallResult.Success(standardOutput)
-                : DriverInstallResult.Failure($"pnputil завершился с кодом {process.ExitCode}.");
+            return exitCode == 0
+                ? DriverInstallResult.Success(output)
+                : DriverInstallResult.Failure($"pnputil завершился с кодом {exitCode}. Вывод: {output}");
+        }
+        catch (Win32Exception ex) when (ex.NativeErrorCode == 1223)
+        {
+            return DriverInstallResult.Failure("Удаление отменено пользователем (запрос UAC отклонён).");
         }
         catch (Exception ex)
         {
@@ -266,10 +231,54 @@ public sealed class DriverInstaller
         }
     }
 
-    public static bool IsRunningAsAdministrator()
+    /// <summary>
+    /// Запускает команду через cmd.exe с точечным запросом повышения прав
+    /// (UAC) — только на время этого вызова, не затрагивая остальное
+    /// приложение. ShellExecute (обязательный для запроса UAC через
+    /// verb="runas") не поддерживает прямое перенаправление stdout/stderr
+    /// в текущий процесс, поэтому вывод команды перенаправляется во
+    /// временный файл, который затем читает уже неповышенный родительский
+    /// процесс — тот же приём, что используется в Installer/setup_script.iss.
+    /// </summary>
+    private static async Task<(int ExitCode, string Output)> RunElevatedCommandAsync(string commandLine)
     {
-        using var identity = WindowsIdentity.GetCurrent();
-        var principal = new WindowsPrincipal(identity);
-        return principal.IsInRole(WindowsBuiltInRole.Administrator);
+        string tempOutputFile = Path.Combine(Path.GetTempPath(), $"nm_pnputil_{Guid.NewGuid():N}.txt");
+
+        try
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "cmd.exe",
+                Arguments = $"/c {commandLine} > \"{tempOutputFile}\" 2>&1",
+                UseShellExecute = true,
+                Verb = "runas",
+                WindowStyle = ProcessWindowStyle.Hidden,
+            };
+
+            using Process? process = Process.Start(startInfo);
+            if (process == null)
+            {
+                return (-1, "Не удалось запустить процесс с повышенными правами.");
+            }
+
+            await process.WaitForExitAsync().ConfigureAwait(false);
+
+            string output = File.Exists(tempOutputFile)
+                ? await File.ReadAllTextAsync(tempOutputFile).ConfigureAwait(false)
+                : string.Empty;
+
+            return (process.ExitCode, output);
+        }
+        finally
+        {
+            try
+            {
+                if (File.Exists(tempOutputFile)) File.Delete(tempOutputFile);
+            }
+            catch (Exception)
+            {
+                // Временный файл не критичен для результата операции.
+            }
+        }
     }
 }

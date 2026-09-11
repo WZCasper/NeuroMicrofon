@@ -3,15 +3,25 @@
   <assemblyIdentity version="1.0.0.0" name="NeuroMicrophone.app"/>
 
   <!--
-    requireAdministrator: приложению нужны права администратора, чтобы
-    DriverInstaller мог вызывать pnputil.exe для установки/удаления
-    виртуального аудиодрайвера. Без этого пользователь будет получать
-    отказ в доступе при попытке установить/переустановить драйвер.
+    asInvoker (без запроса повышения при каждом запуске): большая часть
+    приложения (захват/вывод звука, горячие клавиши, трей, настройки)
+    прав администратора не требует. Административные права нужны только
+    для конкретных операций установки/удаления драйвера — DriverInstaller
+    запрашивает повышение "по требованию" через verb=runas именно на время
+    вызова pnputil, а не для всего приложения сразу.
+
+    ВАЖНО: requireAdministrator здесь намеренно НЕ используется — помимо
+    того, что тогда установщику не удаётся запустить приложение обычным
+    способом сразу после установки (ошибка Windows 740, "требуется
+    повышение"), это ещё и ломает автозапуск с Windows: приложения,
+    манифест которых требует администратора, при входе в систему через
+    обычный ключ реестра HKCU\...\Run операционной системой просто не
+    запускаются (Windows не показывает UAC-запрос в контексте автозапуска).
   -->
   <trustInfo xmlns="urn:schemas-microsoft-com:asm.v2">
     <security>
       <requestedPrivileges xmlns="urn:schemas-microsoft-com:asm.v3">
-        <requestedExecutionLevel level="requireAdministrator" uiAccess="false"/>
+        <requestedExecutionLevel level="asInvoker" uiAccess="false"/>
       </requestedPrivileges>
     </security>
   </trustInfo>
