@@ -310,6 +310,19 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
         _engine.ErrorOccurred += (_, message) => StatusMessage = message;
 
+        // ВАЖНО: таймер debounce-сохранения должен существовать ДО того, как
+        // ниже будут выставлены SelectedInputDevice/SelectedOutputDevice/
+        // SelectedMonitorDevice — их сеттеры вызывают ScheduleSettingsSave(),
+        // который обращается к _saveDebounceTimer. Обратный порядок приводит
+        // к NullReferenceException прямо при создании ViewModel (то есть к
+        // падению приложения на самом старте).
+        _saveDebounceTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+        _saveDebounceTimer.Tick += async (_, _) =>
+        {
+            _saveDebounceTimer.Stop();
+            await SaveSettingsAsync();
+        };
+
         RefreshDeviceLists();
         IsDriverInstalled = _driverInstaller.IsDriverInstalled();
         IsAutostartEnabled = AutostartService.IsEnabled();
@@ -319,13 +332,6 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             OutputDevices.FirstOrDefault(d => d.Name.Contains(DriverInstaller.VirtualDeviceName, StringComparison.OrdinalIgnoreCase))
             ?? OutputDevices.FirstOrDefault();
         SelectedMonitorDevice = OutputDevices.FirstOrDefault();
-
-        _saveDebounceTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
-        _saveDebounceTimer.Tick += async (_, _) =>
-        {
-            _saveDebounceTimer.Stop();
-            await SaveSettingsAsync();
-        };
 
         _meterTimer = new DispatcherTimer(DispatcherPriority.Render)
         {

@@ -7,6 +7,17 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <RootNamespace>NeuroMicrophone.Tests</RootNamespace>
+    <!--
+      UseWPF нужен здесь не для собственного UI тестового проекта (его нет),
+      а чтобы хост-процесс dotnet test знал о зависимости от shared framework
+      Microsoft.WindowsDesktop.App и мог в рантайме загрузить WPF-сборки
+      (WindowsBase/PresentationCore/PresentationFramework), которые
+      использует MainViewModel (DispatcherTimer, ICommand и т.д.) — без
+      этого свойства ссылка на NeuroMicrophone.csproj резолвится на этапе
+      компиляции, но падает при первом реальном обращении к WPF-типам
+      в рантайме тестов.
+    -->
+    <UseWPF>true</UseWPF>
   </PropertyGroup>
 
   <ItemGroup>

@@ -44,7 +44,7 @@ public partial class App : System.Windows.Application
         LogException(e.Exception);
 
         System.Windows.MessageBox.Show(
-            $"Произошла непредвиденная ошибка:\n{e.Exception.Message}\n\nПодробности сохранены в журнал.",
+            $"Произошла непредвиденная ошибка:\n{DescribeRootCause(e.Exception)}\n\nПодробности сохранены в журнал.",
             "NeuroMicrophone — ошибка",
             MessageBoxButton.OK,
             MessageBoxImage.Error);
@@ -60,6 +60,26 @@ public partial class App : System.Windows.Application
         {
             LogException(ex);
         }
+    }
+
+    /// <summary>
+    /// .NET заворачивает исключения, возникшие при вызове через рефлексию
+    /// (в том числе при создании стартового окна через StartupUri в WPF), в
+    /// обёртку TargetInvocationException с общим текстом "Exception has been
+    /// thrown by the target of an invocation." — сама по себе эта строка не
+    /// говорит пользователю ничего полезного о настоящей причине сбоя.
+    /// Эта функция раскручивает цепочку InnerException и возвращает
+    /// сообщение самого глубокого (настоящего) исключения вместе с его типом.
+    /// </summary>
+    private static string DescribeRootCause(Exception exception)
+    {
+        Exception root = exception;
+        while (root.InnerException != null)
+        {
+            root = root.InnerException;
+        }
+
+        return $"{root.GetType().Name}: {root.Message}";
     }
 
     private static void LogException(Exception ex)
