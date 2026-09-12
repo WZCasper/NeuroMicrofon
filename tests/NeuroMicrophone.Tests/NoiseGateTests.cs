@@ -104,7 +104,8 @@ public class NoiseGateTests
     {
         const int sampleRate = 48000;
         int loudSamples = (int)(0.05 * sampleRate); // 50 мс громкого сигнала
-        int quietSamples = (int)(0.5 * sampleRate); // 500 мс тихого сигнала — заведомо больше Hold(100мс)+Release(150мс)
+        int quietSamples = (int)(1.0 * sampleRate); // 1 секунда тихого сигнала — Hold(100мс) + ~900мс Release,
+                                                      // что даёт экспоненциальному спаду (тау=150мс) осесть до <1%
 
         float loudAmplitude = LevelMeter.DbToLinear(-20f);
         float quietAmplitude = LevelMeter.DbToLinear(-70f);
@@ -121,8 +122,11 @@ public class NoiseGateTests
 
         float tail = output[output.Length - 1];
 
-        // К этому моменту прошли и Hold (100 мс), и Release (150 мс) — гейт
-        // должен полностью закрыться, несмотря на то что вход всё ещё не ноль.
+        // К этому моменту прошли и Hold (100 мс), и ~6 постоянных времени
+        // Release (150 мс каждая) — гейт должен практически полностью
+        // закрыться, несмотря на то что вход всё ещё не ноль. Экспоненциальный
+        // спад математически никогда не достигает точного нуля, поэтому порог
+        // сравнения — не "равно нулю", а "на порядок меньше входного сигнала".
         Assert.True(Math.Abs(tail) < quietAmplitude * 0.05f,
             $"Ожидалось полное закрытие гейта после Hold+Release, получено {tail}");
     }
