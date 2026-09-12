@@ -1,0 +1,73 @@
+Inno Setup 6 Command-Line Compiler
+Copyright (C) 1997-2026 Jordan Russell. All rights reserved.
+Portions Copyright (C) 2000-2026 Martijn Laan. All rights reserved.
+Portions Copyright (C) 2001-2004 Alex Yackimoff. All rights reserved.
+https://www.innosetup.com
+
+Compiler engine version: Inno Setup 6.7.1
+Non-commercial use only
+
+Preprocessing
+   Reading file: C:\Program Files (x86)\Inno Setup 6\ISPPBuiltins.iss
+Parsing [Setup] section, line 47
+Parsing [Setup] section, line 48
+Parsing [Setup] section, line 49
+Parsing [Setup] section, line 50
+Parsing [Setup] section, line 51
+Parsing [Setup] section, line 52
+Parsing [Setup] section, line 53
+Parsing [Setup] section, line 54
+Parsing [Setup] section, line 55
+Parsing [Setup] section, line 56
+Parsing [Setup] section, line 57
+Parsing [Setup] section, line 58
+Parsing [Setup] section, line 59
+Parsing [Setup] section, line 60
+Parsing [Setup] section, line 61
+Creating output directory: D:\a\NeuroMicrofon\NeuroMicrofon\Installer\Output
+Reading file (WizardImageFile)
+Reading file (WizardSmallImageFile)
+Preparing Setup program executable
+   Verification successful
+   Updating icons (Setup.e32)
+   Updating version info (Setup.e32)
+Determining language code pages
+Parsing [Languages] section, line 64
+   Reading file: C:\Program Files (x86)\Inno Setup 6\Languages\Russian.isl
+   Messages in script file
+Reading default messages from Default.isl
+Parsing [Languages] section, line 64
+   Reading file: C:\Program Files (x86)\Inno Setup 6\Languages\Russian.isl
+Parsing [LangOptions], [Messages], and [CustomMessages] sections
+   Messages in script file
+Reading [Code] section
+Parsing [Tasks] section, line 84
+Parsing [Icons] section, line 80
+Parsing [Icons] section, line 81
+Parsing [Run] section, line 87
+Parsing [Files] section, line 68
+Parsing [Files] section, line 75
+Compiling [Code] section
+Creating setup files
+   Verification successful
+   Updating icons (Setup.exe)
+   Compressing: D:\a\NeuroMicrofon\NeuroMicrofon\Installer\..\src\bin\Release\net8.0-windows\win-x64\publish\NAudio.Asio.dll
+   Compressing: D:\a\NeuroMicrofon\NeuroMicrofon\Installer\..\src\bin\Release\net8.0-windows\win-x64\publish\NAudio.Core.dll
+   Compressing: D:\a\NeuroMicrofon\NeuroMicrofon\Installer\..\src\bin\Release\net8.0-windows\win-x64\publish\NAudio.dll
+   Compressing: D:\a\NeuroMicrofon\NeuroMicrofon\Installer\..\src\bin\Release\net8.0-windows\win-x64\publish\NAudio.Midi.dll
+   Compressing: D:\a\NeuroMicrofon\NeuroMicrofon\Installer\..\src\bin\Release\net8.0-windows\win-x64\publish\NAudio.Wasapi.dll
+   Compressing: D:\a\NeuroMicrofon\NeuroMicrofon\Installer\..\src\bin\Release\net8.0-windows\win-x64\publish\NAudio.WinForms.dll
+   Compressing: D:\a\NeuroMicrofon\NeuroMicrofon\Installer\..\src\bin\Release\net8.0-windows\win-x64\publish\NAudio.WinMM.dll
+   Compressing: D:\a\NeuroMicrofon\NeuroMicrofon\Installer\..\src\bin\Release\net8.0-windows\win-x64\publish\NeuroMicrophone.deps.json
+   Compressing: D:\a\NeuroMicrofon\NeuroMicrofon\Installer\..\src\bin\Release\net8.0-windows\win-x64\publish\NeuroMicrophone.dll
+   Compressing: D:\a\NeuroMicrofon\NeuroMicrofon\Installer\..\src\bin\Release\net8.0-windows\win-x64\publish\NeuroMicrophone.exe
+   Compressing: D:\a\NeuroMicrofon\NeuroMicrofon\Installer\..\src\bin\Release\net8.0-windows\win-x64\publish\NeuroMicrophone.pdb
+   Compressing: D:\a\NeuroMicrofon\NeuroMicrofon\Installer\..\src\bin\Release\net8.0-windows\win-x64\publish\NeuroMicrophone.runtimeconfig.json
+   Compressing Setup program executable
+   Updating version info (Setup.exe)
+   Updating manifest (Setup.exe)
+
+Warning: Architecture identifier "x64" is deprecated. Substituting "x64os", but note that "x64compatible" is preferred in most cases. See the "Architecture Identifiers" topic in help file for more information.
+
+Successful compile (1.500 sec). Resulting Setup program filename is:
+D:\a\NeuroMicrofon\NeuroMicrofon\Installer\Output\NeuroMicrophone_Setup.exe

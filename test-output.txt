@@ -1,0 +1,9 @@
+  Determining projects to restore...
+  Restored D:\a\NeuroMicrofon\NeuroMicrofon\tests\NeuroMicrophone.Tests\NeuroMicrophone.Tests.csproj (in 5.35 sec).
+  1 of 2 projects are up-to-date for restore.
+  NeuroMicrophone -> D:\a\NeuroMicrofon\NeuroMicrofon\src\bin\Release\net8.0-windows\win-x64\NeuroMicrophone.dll
+  NeuroMicrophone.Tests -> D:\a\NeuroMicrofon\NeuroMicrofon\tests\NeuroMicrophone.Tests\bin\Release\net8.0-windows\NeuroMicrophone.Tests.dll
+Test run for D:\a\NeuroMicrofon\NeuroMicrofon\tests\NeuroMicrophone.Tests\bin\Release\net8.0-windows\NeuroMicrophone.Tests.dll (.NETCoreApp,Version=v8.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    23, Skipped:     0, Total:    23, Duration: 135 ms - NeuroMicrophone.Tests.dll (net8.0)

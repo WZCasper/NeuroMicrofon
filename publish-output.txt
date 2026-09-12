@@ -1,0 +1,4 @@
+  Determining projects to restore...
+  Restored D:\a\NeuroMicrofon\NeuroMicrofon\src\NeuroMicrophone.csproj (in 447 ms).
+  NeuroMicrophone -> D:\a\NeuroMicrofon\NeuroMicrofon\src\bin\Release\net8.0-windows\win-x64\NeuroMicrophone.dll
+  NeuroMicrophone -> D:\a\NeuroMicrofon\NeuroMicrofon\src\bin\Release\net8.0-windows\win-x64\publish\
