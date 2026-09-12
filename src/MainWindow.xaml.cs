@@ -8,8 +8,6 @@ namespace NeuroMicrophone;
 
 public partial class MainWindow : Window
 {
-    private const uint VirtualKeyM = 0x4D;
-
     private readonly MainViewModel _viewModel;
     private HotkeyService? _hotkeyService;
     private TrayIconService? _trayIconService;
@@ -29,8 +27,13 @@ public partial class MainWindow : Window
 
     private void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
-        _hotkeyService = new HotkeyService(this, VirtualKeyM);
+        _hotkeyService = new HotkeyService(this, _viewModel.SelectedHotkey.Modifiers, _viewModel.SelectedHotkey.VirtualKey);
         _hotkeyService.HotkeyPressed += () => _viewModel.IsMuted = !_viewModel.IsMuted;
+
+        // Если пользователь выберет другую комбинацию в настройках (в том числе
+        // сразу после загрузки сохранённых настроек, которая идёт асинхронно и
+        // может завершиться уже после этого события) — перерегистрируем хук.
+        _viewModel.PropertyChanged += ViewModel_PropertyChanged;
 
         _trayIconService = new TrayIconService(this);
         _trayIconService.ExitRequested += () =>
@@ -38,6 +41,14 @@ public partial class MainWindow : Window
             _isExiting = true;
             Close();
         };
+    }
+
+    private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MainViewModel.SelectedHotkey))
+        {
+            _hotkeyService?.ChangeHotkey(_viewModel.SelectedHotkey.Modifiers, _viewModel.SelectedHotkey.VirtualKey);
+        }
     }
 
     private void MainWindow_StateChanged(object? sender, EventArgs e)
@@ -59,6 +70,7 @@ public partial class MainWindow : Window
             return;
         }
 
+        _viewModel.PropertyChanged -= ViewModel_PropertyChanged;
         _hotkeyService?.Dispose();
         _trayIconService?.Dispose();
 

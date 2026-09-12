@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -21,6 +22,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private readonly AudioEngine _engine = new();
     private readonly DriverInstaller _driverInstaller = new();
     private readonly SettingsService _settingsService = new();
+    private readonly UpdateCheckService _updateCheckService = new();
     private readonly DispatcherTimer _meterTimer;
     private readonly DispatcherTimer _saveDebounceTimer;
     private CancellationTokenSource? _calibrationCts;
@@ -249,6 +251,46 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         }
     }
 
+    private float _highPassCutoffHz = 90f;
+    public float HighPassCutoffHz
+    {
+        get => _highPassCutoffHz;
+        set
+        {
+            if (!SetProperty(ref _highPassCutoffHz, value)) return;
+            if (_engine.Pipeline != null) _engine.Pipeline.HighPass.CutoffHz = value;
+            ScheduleSettingsSave();
+        }
+    }
+
+    // --- Горячая клавиша заглушки микрофона ---
+
+    public IReadOnlyList<HotkeyOption> HotkeyOptions => HotkeyOption.BuiltIn;
+
+    private HotkeyOption _selectedHotkey = HotkeyOption.BuiltIn[0];
+    public HotkeyOption SelectedHotkey
+    {
+        get => _selectedHotkey;
+        set
+        {
+            // MainWindow подписывается на PropertyChanged этого свойства и сам
+            // перерегистрирует системную горячую клавишу через HotkeyService —
+            // ViewModel не должна напрямую знать о WinAPI/окне.
+            if (!SetProperty(ref _selectedHotkey, value)) return;
+            ScheduleSettingsSave();
+        }
+    }
+
+    // --- Проверка обновлений ---
+
+    private string? _updateAvailableMessage;
+    public string? UpdateAvailableMessage { get => _updateAvailableMessage; private set => SetProperty(ref _updateAvailableMessage, value); }
+
+    private string? _updateAvailableUrl;
+    public string? UpdateAvailableUrl { get => _updateAvailableUrl; private set => SetProperty(ref _updateAvailableUrl, value); }
+
+    public ICommand OpenUpdateCommand { get; }
+
     public ICommand AutoTuneCommand { get; }
     public ICommand ToggleMuteCommand { get; }
     public ICommand InstallDriverCommand { get; }
@@ -260,6 +302,11 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         ToggleMuteCommand = new RelayCommand(() => IsMuted = !IsMuted);
         InstallDriverCommand = new RelayCommand(async () => await InstallDriverAsync(), () => !IsDriverInstalled);
         UninstallDriverCommand = new RelayCommand(async () => await UninstallDriverAsync(), () => IsDriverInstalled);
+        OpenUpdateCommand = new RelayCommand(() =>
+        {
+            if (string.IsNullOrEmpty(UpdateAvailableUrl)) return;
+            Process.Start(new ProcessStartInfo(UpdateAvailableUrl) { UseShellExecute = true });
+        });
 
         _engine.ErrorOccurred += (_, message) => StatusMessage = message;
 
@@ -294,6 +341,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         _meterTimer.Start();
 
         _ = LoadSettingsAndApplyAsync();
+        _ = CheckForUpdatesAsync();
     }
 
     private void RefreshDeviceLists()
@@ -342,6 +390,16 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         dsp.Agc.TargetLevelDb = AgcTargetLevelDb;
         dsp.Comp.ThresholdDb = CompressorThresholdDb;
         dsp.Comp.Ratio = CompressorRatio;
+        dsp.HighPass.CutoffHz = HighPassCutoffHz;
+    }
+
+    private async Task CheckForUpdatesAsync()
+    {
+        UpdateCheckResult? result = await _updateCheckService.CheckForUpdateAsync();
+        if (result == null) return;
+
+        UpdateAvailableMessage = $"Доступна новая версия {result.NewVersion} — обновите приложение.";
+        UpdateAvailableUrl = result.ReleaseUrl;
     }
 
     private async Task LoadSettingsAndApplyAsync()
@@ -368,6 +426,14 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
                 AgcTargetLevelDb = settings.AgcTargetLevelDb;
                 CompressorThresholdDb = settings.CompressorThresholdDb;
                 CompressorRatio = settings.CompressorRatio;
+                HighPassCutoffHz = settings.HighPassCutoffHz;
+            }
+
+            if (settings.HotkeyModifiers != 0 && settings.HotkeyVirtualKey != 0)
+            {
+                HotkeyOption? matched = HotkeyOption.BuiltIn.FirstOrDefault(
+                    h => h.Modifiers == settings.HotkeyModifiers && h.VirtualKey == settings.HotkeyVirtualKey);
+                if (matched != null) SelectedHotkey = matched;
             }
 
             _publishedDriverInfName = settings.PublishedDriverInfName;
@@ -398,6 +464,9 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             AgcTargetLevelDb = AgcTargetLevelDb,
             CompressorThresholdDb = CompressorThresholdDb,
             CompressorRatio = CompressorRatio,
+            HighPassCutoffHz = HighPassCutoffHz,
+            HotkeyModifiers = SelectedHotkey.Modifiers,
+            HotkeyVirtualKey = SelectedHotkey.VirtualKey,
             LaunchOnStartup = IsAutostartEnabled,
             PublishedDriverInfName = _publishedDriverInfName,
             HasDspSettings = true,

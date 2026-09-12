@@ -17,8 +17,17 @@ public sealed class AppSettings
     public float AgcTargetLevelDb { get; set; } = -18f;
     public float CompressorThresholdDb { get; set; } = -12f;
     public float CompressorRatio { get; set; } = 3f;
+    public float HighPassCutoffHz { get; set; } = 90f;
 
     public bool LaunchOnStartup { get; set; }
+
+    /// <summary>
+    /// Модификаторы и виртуальный код клавиши выбранной горячей клавиши
+    /// заглушки микрофона (см. Models.HotkeyOption/HotkeyModifiers).
+    /// 0/0 означает "используется вариант по умолчанию".
+    /// </summary>
+    public uint HotkeyModifiers { get; set; }
+    public uint HotkeyVirtualKey { get; set; }
 
     /// <summary>
     /// "Опубликованное" имя INF виртуального драйвера в хранилище драйверов

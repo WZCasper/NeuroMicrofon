@@ -9,6 +9,13 @@ namespace NeuroMicrophone.Audio;
 /// избежать резких щелчков на границах речи.
 /// Порог задаётся движком калибровки как "уровень фонового шума + 6 дБ".
 ///
+/// Между "сигнал пропал" и началом фазы Release есть ещё фаза Hold:
+/// гейт держится полностью открытым ещё HoldMs миллисекунд после того,
+/// как сигнал упал ниже порога, и только потом начинает закрываться.
+/// Без этой фазы гейт на быстро колеблющемся уровне речи (например,
+/// на шипящих согласных) может "стрекотать" — быстро открываться и
+/// закрываться десятки раз в секунду.
+///
 /// Если передан источник VAD (обычно — сам RnnoiseDenoiser), гейт
 /// открывается по правилу "ИЛИ": громкость выше порога ИЛИ вероятность
 /// голоса выше VadThreshold. Это устраняет типичную проблему гейта на
@@ -25,9 +32,11 @@ public sealed class NoiseGate : ISampleProvider
     private readonly int _sampleRate;
     private readonly int _channels;
     private float _envelope = 1f; // текущий применяемый коэффициент усиления, 0..1
+    private int _holdRemainingFrames;
 
     public float ThresholdDb { get; set; } = -50f;
     public float AttackMs { get; set; } = 5f;
+    public float HoldMs { get; set; } = 100f;
     public float ReleaseMs { get; set; } = 150f;
     public float VadThreshold { get; set; } = 0.6f;
     public bool Enabled { get; set; } = true;
@@ -50,6 +59,7 @@ public sealed class NoiseGate : ISampleProvider
         float thresholdLinear = LevelMeter.DbToLinear(ThresholdDb);
         float attackCoeff = ComputeCoefficient(AttackMs);
         float releaseCoeff = ComputeCoefficient(ReleaseMs);
+        int holdFrames = Math.Max(0, (int)(HoldMs / 1000f * _sampleRate));
 
         // VAD-значение читается один раз на весь вызов Read (а не на каждый
         // сэмпл) — оно и так обновляется реже, чем сэмплы поступают, так что
@@ -71,8 +81,24 @@ public sealed class NoiseGate : ISampleProvider
                 if (abs > frameMax) frameMax = abs;
             }
 
-            bool rmsOpen = frameMax >= thresholdLinear;
-            float targetGain = (rmsOpen || vadOpen) ? 1f : 0f;
+            bool signalPresent = frameMax >= thresholdLinear || vadOpen;
+            float targetGain;
+
+            if (signalPresent)
+            {
+                _holdRemainingFrames = holdFrames;
+                targetGain = 1f;
+            }
+            else if (_holdRemainingFrames > 0)
+            {
+                _holdRemainingFrames--;
+                targetGain = 1f; // ещё в фазе Hold — держим открытым
+            }
+            else
+            {
+                targetGain = 0f; // Hold закончился — начинаем закрываться по Release
+            }
+
             float coeff = targetGain > _envelope ? attackCoeff : releaseCoeff;
             _envelope += (targetGain - _envelope) * coeff;
 

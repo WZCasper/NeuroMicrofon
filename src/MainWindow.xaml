@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:NeuroMicrophone.Controls"
         Title="NeuroMicrophone"
-        Height="760" Width="460"
+        Height="800" Width="460"
         MinHeight="600" MinWidth="440"
         WindowStartupLocation="CenterScreen">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -19,6 +19,21 @@
             <Border Background="{StaticResource SurfaceBrush}" CornerRadius="8" Padding="12" Margin="0,0,0,12"
                     Visibility="{Binding StatusMessage, Converter={StaticResource NullToVisibilityConverter}}">
                 <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource DangerBrush}" TextWrapping="Wrap"/>
+            </Border>
+
+            <!-- Доступно обновление -->
+            <Border Background="{StaticResource SurfaceBrush}" CornerRadius="8" Padding="12" Margin="0,0,0,12"
+                    Visibility="{Binding UpdateAvailableMessage, Converter={StaticResource NullToVisibilityConverter}}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="{Binding UpdateAvailableMessage}" TextWrapping="Wrap"
+                               Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center"/>
+                    <Button Grid.Column="1" Content="Открыть" Style="{StaticResource SecondaryButtonStyle}"
+                            Command="{Binding OpenUpdateCommand}" Margin="10,0,0,0"/>
+                </Grid>
             </Border>
 
             <!-- Устройства -->
@@ -66,15 +81,43 @@
             <!-- VU-метр + Gain Reduction -->
             <Border Background="{StaticResource SurfaceBrush}" CornerRadius="10" Padding="16" Margin="0,0,0,16">
                 <StackPanel>
-                    <TextBlock Text="Уровень сигнала (обработанный)" Style="{StaticResource SecondaryTextStyle}" Margin="0,0,0,8"/>
-                    <controls:VuMeter RmsDb="{Binding RmsLevel}" PeakDb="{Binding PeakLevel}" Height="28" Margin="0,0,0,14"/>
+                    <Grid Margin="0,0,0,4">
+                        <TextBlock Text="Уровень сигнала (обработанный)" Style="{StaticResource SecondaryTextStyle}" HorizontalAlignment="Left"/>
+                        <TextBlock HorizontalAlignment="Right" Style="{StaticResource SecondaryTextStyle}">
+                            <Run Text="{Binding RmsLevel, StringFormat={}{0:F0}, Mode=OneWay}"/>
+                            <Run Text="/"/>
+                            <Run Text="{Binding PeakLevel, StringFormat={}{0:F0}, Mode=OneWay}"/>
+                            <Run Text=" дБ (RMS/пик)"/>
+                        </TextBlock>
+                    </Grid>
+                    <controls:VuMeter RmsDb="{Binding RmsLevel}" PeakDb="{Binding PeakLevel}" Height="28" Margin="0,0,0,2"/>
+                    <Grid Margin="0,2,0,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="-60" Style="{StaticResource SecondaryTextStyle}" FontSize="10" HorizontalAlignment="Left"/>
+                        <TextBlock Grid.Column="1" Text="-40" Style="{StaticResource SecondaryTextStyle}" FontSize="10" HorizontalAlignment="Center"/>
+                        <TextBlock Grid.Column="2" Text="-20" Style="{StaticResource SecondaryTextStyle}" FontSize="10" HorizontalAlignment="Center"/>
+                        <TextBlock Grid.Column="3" Text="0 дБ" Style="{StaticResource SecondaryTextStyle}" FontSize="10" HorizontalAlignment="Right"/>
+                    </Grid>
 
-                    <TextBlock Text="Компрессор — снижение усиления" Style="{StaticResource SecondaryTextStyle}" Margin="0,0,0,4"/>
+                    <Grid Margin="0,0,0,4">
+                        <TextBlock Text="Компрессор — снижение усиления" Style="{StaticResource SecondaryTextStyle}" HorizontalAlignment="Left"/>
+                        <TextBlock Text="{Binding CompressorGainReductionDb, StringFormat={}{0:F1} дБ, Mode=OneWay}"
+                                   Style="{StaticResource SecondaryTextStyle}" HorizontalAlignment="Right"/>
+                    </Grid>
                     <ProgressBar Style="{StaticResource GainReductionBarStyle}"
                                  Value="{Binding CompressorGainReductionDb, Converter={StaticResource GainReductionToPercentConverter}, Mode=OneWay}"
                                  Minimum="0" Maximum="100" Margin="0,0,0,10"/>
 
-                    <TextBlock Text="Лимитер — снижение усиления" Style="{StaticResource SecondaryTextStyle}" Margin="0,0,0,4"/>
+                    <Grid Margin="0,0,0,4">
+                        <TextBlock Text="Лимитер — снижение усиления" Style="{StaticResource SecondaryTextStyle}" HorizontalAlignment="Left"/>
+                        <TextBlock Text="{Binding LimiterGainReductionDb, StringFormat={}{0:F1} дБ, Mode=OneWay}"
+                                   Style="{StaticResource SecondaryTextStyle}" HorizontalAlignment="Right"/>
+                    </Grid>
                     <ProgressBar Style="{StaticResource GainReductionBarStyle}"
                                  Value="{Binding LimiterGainReductionDb, Converter={StaticResource GainReductionToPercentConverter}, Mode=OneWay}"
                                  Minimum="0" Maximum="100"/>
@@ -102,23 +145,30 @@
 
             <!-- Заглушка микрофона -->
             <Border Background="{StaticResource SurfaceBrush}" CornerRadius="10" Padding="16" Margin="0,0,0,16">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
-                        <TextBlock Text="Заглушка микрофона" FontWeight="SemiBold"/>
-                        <TextBlock Text="Горячая клавиша: Ctrl + Shift + M" Style="{StaticResource SecondaryTextStyle}"/>
-                    </StackPanel>
-                    <ToggleButton Grid.Column="1" Style="{StaticResource MuteToggleStyle}" IsChecked="{Binding IsMuted}"/>
-                </Grid>
+                <StackPanel>
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Заглушка микрофона" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <ToggleButton Grid.Column="1" Style="{StaticResource MuteToggleStyle}" IsChecked="{Binding IsMuted}"/>
+                    </Grid>
+                    <TextBlock Text="Горячая клавиша" Style="{StaticResource SecondaryTextStyle}" Margin="0,0,0,4"/>
+                    <ComboBox ItemsSource="{Binding HotkeyOptions}" SelectedItem="{Binding SelectedHotkey}"/>
+                </StackPanel>
             </Border>
 
             <!-- Расширенные настройки -->
             <Expander Header="Расширенные настройки" Margin="0,0,0,16">
                 <Border Background="{StaticResource SurfaceBrush}" CornerRadius="10" Padding="16" Margin="0,10,0,0">
                     <StackPanel>
+
+                        <Grid Margin="0,0,0,4">
+                            <TextBlock Text="Срез низких частот (хай-пас)" Style="{StaticResource SecondaryTextStyle}" HorizontalAlignment="Left"/>
+                            <TextBlock Text="{Binding HighPassCutoffHz, StringFormat={}{0:F0} Гц}" Style="{StaticResource SecondaryTextStyle}" HorizontalAlignment="Right"/>
+                        </Grid>
+                        <Slider Minimum="40" Maximum="200" Value="{Binding HighPassCutoffHz}" Margin="0,0,0,14"/>
 
                         <Grid Margin="0,0,0,4">
                             <TextBlock Text="Порог шумового гейта" Style="{StaticResource SecondaryTextStyle}" HorizontalAlignment="Left"/>

@@ -69,4 +69,61 @@ public class NoiseGateTests
         Assert.True(Math.Abs(tail - amplitude) < amplitude * 0.05f,
             $"Ожидалось, что высокая вероятность VAD удержит гейт открытым, получено {tail} при входе {amplitude}");
     }
+
+    [Fact]
+    public void Read_SignalDropsBelowThreshold_GateStaysOpenDuringHoldWindow()
+    {
+        const int sampleRate = 48000;
+        int loudSamples = (int)(0.05 * sampleRate);  // 50 мс громкого сигнала
+        int quietSamples = (int)(0.03 * sampleRate); // 30 мс тихого сигнала — меньше Hold-окна (100 мс)
+
+        float loudAmplitude = LevelMeter.DbToLinear(-20f);  // выше порога -50 дБ
+        float quietAmplitude = LevelMeter.DbToLinear(-70f); // ниже порога, но не ноль — так видно, открыт ли гейт
+
+        float[] input = new float[loudSamples + quietSamples];
+        for (int i = 0; i < loudSamples; i++) input[i] = loudAmplitude;
+        for (int i = loudSamples; i < input.Length; i++) input[i] = quietAmplitude;
+
+        var source = new ArraySampleProvider(input, sampleRate);
+        var gate = new NoiseGate(source) { ThresholdDb = -50f, AttackMs = 5f, HoldMs = 100f, ReleaseMs = 150f };
+
+        float[] output = new float[input.Length];
+        gate.Read(output, 0, output.Length);
+
+        float tail = output[output.Length - 1];
+
+        // 30 мс тишины меньше 100-мс окна Hold — гейт должен оставаться
+        // практически полностью открытым, то есть выход должен быть близок
+        // к тихому входному сигналу, а не к нулю.
+        Assert.True(Math.Abs(tail - quietAmplitude) < quietAmplitude * 0.3f,
+            $"Ожидалось, что гейт останется открытым во время Hold-окна: вход={quietAmplitude}, выход={tail}");
+    }
+
+    [Fact]
+    public void Read_SignalDropsBelowThreshold_GateClosesAfterHoldWindowExpires()
+    {
+        const int sampleRate = 48000;
+        int loudSamples = (int)(0.05 * sampleRate); // 50 мс громкого сигнала
+        int quietSamples = (int)(0.5 * sampleRate); // 500 мс тихого сигнала — заведомо больше Hold(100мс)+Release(150мс)
+
+        float loudAmplitude = LevelMeter.DbToLinear(-20f);
+        float quietAmplitude = LevelMeter.DbToLinear(-70f);
+
+        float[] input = new float[loudSamples + quietSamples];
+        for (int i = 0; i < loudSamples; i++) input[i] = loudAmplitude;
+        for (int i = loudSamples; i < input.Length; i++) input[i] = quietAmplitude;
+
+        var source = new ArraySampleProvider(input, sampleRate);
+        var gate = new NoiseGate(source) { ThresholdDb = -50f, AttackMs = 5f, HoldMs = 100f, ReleaseMs = 150f };
+
+        float[] output = new float[input.Length];
+        gate.Read(output, 0, output.Length);
+
+        float tail = output[output.Length - 1];
+
+        // К этому моменту прошли и Hold (100 мс), и Release (150 мс) — гейт
+        // должен полностью закрыться, несмотря на то что вход всё ещё не ноль.
+        Assert.True(Math.Abs(tail) < quietAmplitude * 0.05f,
+            $"Ожидалось полное закрытие гейта после Hold+Release, получено {tail}");
+    }
 }

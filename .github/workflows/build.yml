@@ -3,6 +3,15 @@ name: Build NeuroMicrophone
 # Позволяет получить настоящий, скомпилированный .exe без установки Visual
 # Studio на своём компьютере — GitHub бесплатно предоставляет для этого
 # реальную виртуальную машину с Windows.
+#
+# Версия сборки: 1.0.<номер запуска workflow> — монотонно растёт с каждым
+# запуском, поэтому каждая успешная сборка публикуется как ОТДЕЛЬНЫЙ релиз
+# с уникальным тегом (а не перезаписывает один и тот же "latest"). Это даёт
+# полноценную историю версий: можно открыть вкладку Releases и откатиться
+# на любую конкретную рабочую сборку, если новая окажется хуже. GitHub сам
+# считает самый последний созданный релиз "latest" (без каких-либо
+# дополнительных действий) — именно его читает и UpdateCheckService внутри
+# приложения через /releases/latest.
 
 on:
   push:
@@ -19,6 +28,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Compute version
+        id: version
+        shell: bash
+        run: echo "version=1.0.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
 
       - name: Setup .NET 8 SDK
         uses: actions/setup-dotnet@v4
@@ -37,7 +51,7 @@ jobs:
 
       - name: Publish application
         run: |
-          dotnet publish src/NeuroMicrophone.csproj -c Release -r win-x64 --self-contained false 2>&1 | Tee-Object -FilePath publish-output.txt
+          dotnet publish src/NeuroMicrophone.csproj -c Release -r win-x64 --self-contained false -p:Version=${{ steps.version.outputs.version }} 2>&1 | Tee-Object -FilePath publish-output.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Upload application (unpacked folder)
@@ -52,7 +66,7 @@ jobs:
       - name: Build installer
         continue-on-error: true
         run: |
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "Installer\setup_script.iss" 2>&1 | Tee-Object -FilePath installer-output.txt
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=${{ steps.version.outputs.version }}" "Installer\setup_script.iss" 2>&1 | Tee-Object -FilePath installer-output.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Upload installer (.exe)
@@ -71,7 +85,8 @@ jobs:
       # Артефакты actions/upload-artifact скачиваются через Azure Blob Storage,
       # к которому нет доступа из некоторых сетевых окружений. GitHub Release
       # раздаёт файлы напрямую с github.com — надёжный запасной путь получить
-      # реальный собранный файл.
+      # реальный собранный файл. Каждый успешный билд — отдельный тег vX.Y.Z,
+      # без удаления/перезаписи предыдущих релизов.
       - name: Publish GitHub Release with build results
         if: success()
         shell: bash
@@ -82,10 +97,8 @@ jobs:
           if [ -f "Installer/Output/NeuroMicrophone_Setup.exe" ]; then
             ASSETS+=(Installer/Output/NeuroMicrophone_Setup.exe)
           fi
-          gh release delete "build-latest" --yes --repo "${{ github.repository }}" 2>/dev/null || true
-          git push origin ":refs/tags/build-latest" 2>/dev/null || true
-          gh release create "build-latest" "${ASSETS[@]}" \
-            --title "Автосборка (коммит ${GITHUB_SHA:0:7})" \
+          gh release create "v${{ steps.version.outputs.version }}" "${ASSETS[@]}" \
+            --title "NeuroMicrophone v${{ steps.version.outputs.version }}" \
             --notes "Автоматическая сборка из workflow. Коммит: ${GITHUB_SHA}" \
             --repo "${{ github.repository }}"
 
@@ -107,6 +120,7 @@ jobs:
           done
           echo "job_status=${{ job.status }}" > /tmp/ci-output/summary.txt
           echo "commit=${GITHUB_SHA}" >> /tmp/ci-output/summary.txt
+          echo "version=${{ steps.version.outputs.version }}" >> /tmp/ci-output/summary.txt
 
           rm -rf /tmp/ci-results-repo
           REPO_URL="https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"

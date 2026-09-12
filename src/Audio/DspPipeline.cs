@@ -3,9 +3,10 @@ using NAudio.Wave;
 namespace NeuroMicrophone.Audio;
 
 /// <summary>
-/// Собирает полный аудиопайплайн строго в порядке, заданном спецификацией:
+/// Собирает полный аудиопайплайн строго в порядке, заданном спецификацией,
+/// с добавленным по рекомендации фильтром верхних частот в самом начале:
 ///
-///   [Физический микрофон] → RNNoise → Noise Gate → AGC → Compressor → Limiter → [выход]
+///   [Микрофон] → HighPass → RNNoise → Noise Gate → AGC → Compressor → Limiter → [выход]
 ///
 /// Каждая стадия остаётся публично доступной, чтобы CalibrationEngine и
 /// MainViewModel могли читать/менять её параметры в реальном времени без
@@ -13,6 +14,7 @@ namespace NeuroMicrophone.Audio;
 /// </summary>
 public sealed class DspPipeline : ISampleProvider
 {
+    public HighPassFilter HighPass { get; }
     public RnnoiseDenoiser Denoiser { get; }
     public NoiseGate Gate { get; }
     public AutoGainControl Agc { get; }
@@ -25,7 +27,8 @@ public sealed class DspPipeline : ISampleProvider
 
     public DspPipeline(ISampleProvider monoSource48k)
     {
-        Denoiser = new RnnoiseDenoiser(monoSource48k);
+        HighPass = new HighPassFilter(monoSource48k) { CutoffHz = 90f, Enabled = true };
+        Denoiser = new RnnoiseDenoiser(HighPass);
         Gate = new NoiseGate(Denoiser, vadSource: Denoiser);
         Agc = new AutoGainControl(Gate);
         Comp = new Compressor(Agc);
