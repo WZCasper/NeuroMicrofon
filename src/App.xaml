@@ -92,7 +92,6 @@
                 <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
                 <Setter Property="FontSize" Value="12"/>
                 <Setter Property="FontWeight" Value="Bold"/>
-                <Setter Property="CharacterCasing" Value="Upper"/>
             </Style>
 
             <!-- Карточка-панель: тёмная поверхность со скруглением и тонкой рамкой. -->
