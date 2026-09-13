@@ -91,11 +91,61 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private double _peakLevel = LevelMeter.MinDb;
     public double PeakLevel { get => _peakLevel; private set => SetProperty(ref _peakLevel, value); }
 
+    private double _inputLevel = LevelMeter.MinDb;
+    /// <summary>RMS-уровень "сырого" сигнала до всей DSP-цепочки (для индикатора входа).</summary>
+    public double InputLevel { get => _inputLevel; private set => SetProperty(ref _inputLevel, value); }
+
     private double _compressorGainReductionDb;
     public double CompressorGainReductionDb { get => _compressorGainReductionDb; private set => SetProperty(ref _compressorGainReductionDb, value); }
 
     private double _limiterGainReductionDb;
     public double LimiterGainReductionDb { get => _limiterGainReductionDb; private set => SetProperty(ref _limiterGainReductionDb, value); }
+
+    // --- Включение/отключение отдельных модулей DSP-цепочки (визуальная "цепочка обработки") ---
+
+    private bool _denoiserEnabled = true;
+    public bool DenoiserEnabled
+    {
+        get => _denoiserEnabled;
+        set
+        {
+            if (!SetProperty(ref _denoiserEnabled, value)) return;
+            if (_engine.Pipeline != null) _engine.Pipeline.Denoiser.Enabled = value;
+        }
+    }
+
+    private bool _gateEnabled = true;
+    public bool GateEnabled
+    {
+        get => _gateEnabled;
+        set
+        {
+            if (!SetProperty(ref _gateEnabled, value)) return;
+            if (_engine.Pipeline != null) _engine.Pipeline.Gate.Enabled = value;
+        }
+    }
+
+    private bool _agcEnabled = true;
+    public bool AgcEnabled
+    {
+        get => _agcEnabled;
+        set
+        {
+            if (!SetProperty(ref _agcEnabled, value)) return;
+            if (_engine.Pipeline != null) _engine.Pipeline.Agc.Enabled = value;
+        }
+    }
+
+    private bool _compEnabled = true;
+    public bool CompEnabled
+    {
+        get => _compEnabled;
+        set
+        {
+            if (!SetProperty(ref _compEnabled, value)) return;
+            if (_engine.Pipeline != null) _engine.Pipeline.Comp.Enabled = value;
+        }
+    }
 
     private bool _isMuted;
     public bool IsMuted
@@ -295,6 +345,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public ICommand ToggleMuteCommand { get; }
     public ICommand InstallDriverCommand { get; }
     public ICommand UninstallDriverCommand { get; }
+    public ICommand SelectPresetCommand { get; }
 
     public MainViewModel()
     {
@@ -302,6 +353,10 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         ToggleMuteCommand = new RelayCommand(() => IsMuted = !IsMuted);
         InstallDriverCommand = new RelayCommand(async () => await InstallDriverAsync(), () => !IsDriverInstalled);
         UninstallDriverCommand = new RelayCommand(async () => await UninstallDriverAsync(), () => IsDriverInstalled);
+        SelectPresetCommand = new RelayCommand<DspPreset>(preset =>
+        {
+            if (preset != null) SelectedPreset = preset;
+        });
         OpenUpdateCommand = new RelayCommand(() =>
         {
             if (string.IsNullOrEmpty(UpdateAvailableUrl)) return;
@@ -341,6 +396,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         {
             RmsLevel = _engine.ProcessedRmsDb;
             PeakLevel = _engine.ProcessedPeakDb;
+            InputLevel = _engine.RawRmsDb;
             CompressorGainReductionDb = _engine.Pipeline?.Comp.CurrentGainReductionDb ?? 0.0;
             LimiterGainReductionDb = _engine.Pipeline?.Lim.CurrentGainReductionDb ?? 0.0;
         };
@@ -397,6 +453,11 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         dsp.Comp.ThresholdDb = CompressorThresholdDb;
         dsp.Comp.Ratio = CompressorRatio;
         dsp.HighPass.CutoffHz = HighPassCutoffHz;
+
+        dsp.Denoiser.Enabled = DenoiserEnabled;
+        dsp.Gate.Enabled = GateEnabled;
+        dsp.Agc.Enabled = AgcEnabled;
+        dsp.Comp.Enabled = CompEnabled;
     }
 
     private async Task CheckForUpdatesAsync()

@@ -1,0 +1,7 @@
+<UserControl x:Class="NeuroMicrophone.Controls.LedMeter"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Border Background="{StaticResource SurfaceAltBrush}" CornerRadius="4" Padding="3">
+        <UniformGrid x:Name="SegmentsHost" Rows="1"/>
+    </Border>
+</UserControl>
