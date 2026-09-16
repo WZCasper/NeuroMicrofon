@@ -192,7 +192,7 @@
                             <StackPanel>
                                 <TextBlock Text="ПРЕСЕТЫ" Style="{StaticResource CardHeaderStyle}" Margin="0,0,0,10"/>
 
-                                <Button Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Stretch"
+                                <Button HorizontalAlignment="Stretch"
                                         HorizontalContentAlignment="Left" Margin="0,0,0,6"
                                         Command="{Binding RecallCalibrationCommand}">
                                     <Grid>
