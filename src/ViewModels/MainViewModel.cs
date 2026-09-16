@@ -225,6 +225,25 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
     // --- Расширенные настройки DSP: прокси-свойства поверх текущего DspPipeline ---
 
+    // true только на время программного применения пресета/калибровки —
+    // отличает эти изменения от ручного перетаскивания ползунка пользователем,
+    // чтобы правильно показывать ActivePresetLabel ("Пользовательские
+    // настройки" появляется, только если ползунок подвинул сам пользователь).
+    private bool _isApplyingPresetOrCalibration;
+
+    private string _activePresetLabel = "Пользовательские настройки";
+    public string ActivePresetLabel { get => _activePresetLabel; private set => SetProperty(ref _activePresetLabel, value); }
+
+    private bool _hasCalibrationResult;
+    public bool HasCalibrationResult { get => _hasCalibrationResult; private set => SetProperty(ref _hasCalibrationResult, value); }
+
+    private float _calibratedGateThresholdDb;
+    private float _calibratedWetMix;
+    private float _calibratedCompThresholdDb;
+    private float _calibratedCompRatio;
+
+    public ICommand RecallCalibrationCommand { get; }
+
     private DspPreset? _selectedPreset;
     public DspPreset? SelectedPreset
     {
@@ -233,12 +252,47 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         {
             if (!SetProperty(ref _selectedPreset, value) || value == null) return;
 
-            GateThresholdDb = value.GateThresholdDb;
-            DenoiserWetMix = value.DenoiserWetMix;
-            AgcTargetLevelDb = value.AgcTargetLevelDb;
-            CompressorThresholdDb = value.CompressorThresholdDb;
-            CompressorRatio = value.CompressorRatio;
+            _isApplyingPresetOrCalibration = true;
+            try
+            {
+                GateThresholdDb = value.GateThresholdDb;
+                DenoiserWetMix = value.DenoiserWetMix;
+                AgcTargetLevelDb = value.AgcTargetLevelDb;
+                CompressorThresholdDb = value.CompressorThresholdDb;
+                CompressorRatio = value.CompressorRatio;
+            }
+            finally
+            {
+                _isApplyingPresetOrCalibration = false;
+            }
+
+            ActivePresetLabel = value.Name;
         }
+    }
+
+    private void RecallCalibration()
+    {
+        if (!HasCalibrationResult) return;
+
+        // Сбрасываем визуальный выбор карточки пресета — активна "своя" калибровка, а не один из фиксированных пресетов.
+        _selectedPreset = null;
+        OnPropertyChanged(nameof(SelectedPreset));
+
+        _isApplyingPresetOrCalibration = true;
+        try
+        {
+            GateThresholdDb = _calibratedGateThresholdDb;
+            DenoiserWetMix = _calibratedWetMix;
+            AgcTargetLevelDb = -18f;
+            CompressorThresholdDb = _calibratedCompThresholdDb;
+            CompressorRatio = _calibratedCompRatio;
+        }
+        finally
+        {
+            _isApplyingPresetOrCalibration = false;
+        }
+
+        ActivePresetLabel = "Автонастройка (моя калибровка)";
     }
 
     private float _gateThresholdDb = -50f;
@@ -249,6 +303,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         {
             if (!SetProperty(ref _gateThresholdDb, value)) return;
             if (_engine.Pipeline != null) _engine.Pipeline.Gate.ThresholdDb = value;
+            MarkCustomizedIfUserEdited();
             ScheduleSettingsSave();
         }
     }
@@ -261,6 +316,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         {
             if (!SetProperty(ref _denoiserWetMix, value)) return;
             if (_engine.Pipeline != null) _engine.Pipeline.Denoiser.WetMix = value;
+            MarkCustomizedIfUserEdited();
             ScheduleSettingsSave();
         }
     }
@@ -273,6 +329,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         {
             if (!SetProperty(ref _agcTargetLevelDb, value)) return;
             if (_engine.Pipeline != null) _engine.Pipeline.Agc.TargetLevelDb = value;
+            MarkCustomizedIfUserEdited();
             ScheduleSettingsSave();
         }
     }
@@ -285,6 +342,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         {
             if (!SetProperty(ref _compressorThresholdDb, value)) return;
             if (_engine.Pipeline != null) _engine.Pipeline.Comp.ThresholdDb = value;
+            MarkCustomizedIfUserEdited();
             ScheduleSettingsSave();
         }
     }
@@ -297,6 +355,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         {
             if (!SetProperty(ref _compressorRatio, value)) return;
             if (_engine.Pipeline != null) _engine.Pipeline.Comp.Ratio = value;
+            MarkCustomizedIfUserEdited();
             ScheduleSettingsSave();
         }
     }
@@ -309,25 +368,78 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         {
             if (!SetProperty(ref _highPassCutoffHz, value)) return;
             if (_engine.Pipeline != null) _engine.Pipeline.HighPass.CutoffHz = value;
+            MarkCustomizedIfUserEdited();
             ScheduleSettingsSave();
         }
     }
 
-    // --- Горячая клавиша заглушки микрофона ---
-
-    public IReadOnlyList<HotkeyOption> HotkeyOptions => HotkeyOption.BuiltIn;
-
-    private HotkeyOption _selectedHotkey = HotkeyOption.BuiltIn[0];
-    public HotkeyOption SelectedHotkey
+    /// <summary>
+    /// Помечает текущий набор настроек как "пользовательский" — но только
+    /// если изменение действительно пришло от пользователя (перетаскивание
+    /// ползунка), а не от применения пресета/калибровки/загрузки настроек.
+    /// </summary>
+    private void MarkCustomizedIfUserEdited()
     {
-        get => _selectedHotkey;
-        set
+        if (_isApplyingPresetOrCalibration || _isLoadingSettings) return;
+        ActivePresetLabel = "Пользовательские настройки";
+    }
+
+    // --- Горячая клавиша заглушки микрофона: свободная запись, максимум
+    //     один модификатор (Ctrl/Alt/Shift) + одна клавиша — то есть не
+    //     более двух клавиш в сочетании, как и просил пользователь.
+    //     Само нажатие слушает MainWindow (ему нужен доступ к клавиатуре
+    //     на уровне окна) и передаёт сюда уже провалидированный результат.
+
+    private uint _hotkeyModifierFlags = HotkeyModifiers.Control;
+    public uint HotkeyModifierFlags { get => _hotkeyModifierFlags; private set => SetProperty(ref _hotkeyModifierFlags, value); }
+
+    private uint _hotkeyVirtualKey = 0x4D; // 'M' по умолчанию
+    public uint HotkeyVirtualKey { get => _hotkeyVirtualKey; private set => SetProperty(ref _hotkeyVirtualKey, value); }
+
+    private string _hotkeyDisplayText = "Ctrl + M";
+    public string HotkeyDisplayText { get => _hotkeyDisplayText; private set => SetProperty(ref _hotkeyDisplayText, value); }
+
+    private bool _isCapturingHotkey;
+    public bool IsCapturingHotkey { get => _isCapturingHotkey; set => SetProperty(ref _isCapturingHotkey, value); }
+
+    public ICommand StartHotkeyCaptureCommand { get; }
+
+    /// <summary>Вызывается из MainWindow после того, как WinAPI успешно зарегистрировал новую комбинацию.</summary>
+    public void ApplyCapturedHotkey(uint modifiers, uint virtualKey, string displayText)
+    {
+        HotkeyModifierFlags = modifiers;
+        HotkeyVirtualKey = virtualKey;
+        HotkeyDisplayText = displayText;
+        IsCapturingHotkey = false;
+        ScheduleSettingsSave();
+    }
+
+    public void CancelHotkeyCapture() => IsCapturingHotkey = false;
+
+    public void ReportHotkeyRegistrationFailed()
+    {
+        IsCapturingHotkey = false;
+        StatusMessage = "Эта комбинация уже занята другой программой. Попробуйте другую.";
+    }
+
+    private static string BuildHotkeyDisplayText(uint modifiers, uint virtualKey)
+    {
+        string modifierText = modifiers switch
         {
-            // MainWindow подписывается на PropertyChanged этого свойства и сам
-            // перерегистрирует системную горячую клавишу через HotkeyService —
-            // ViewModel не должна напрямую знать о WinAPI/окне.
-            if (!SetProperty(ref _selectedHotkey, value)) return;
-            ScheduleSettingsSave();
+            HotkeyModifiers.Control => "Ctrl + ",
+            HotkeyModifiers.Alt => "Alt + ",
+            HotkeyModifiers.Shift => "Shift + ",
+            _ => "",
+        };
+
+        try
+        {
+            Key key = KeyInterop.KeyFromVirtualKey((int)virtualKey);
+            return modifierText + key.ToString().ToUpperInvariant();
+        }
+        catch (Exception)
+        {
+            return modifierText + "?";
         }
     }
 
@@ -340,12 +452,14 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public string? UpdateAvailableUrl { get => _updateAvailableUrl; private set => SetProperty(ref _updateAvailableUrl, value); }
 
     public ICommand OpenUpdateCommand { get; }
+    public ICommand OpenVbCableLinkCommand { get; }
 
     public ICommand AutoTuneCommand { get; }
     public ICommand ToggleMuteCommand { get; }
     public ICommand InstallDriverCommand { get; }
     public ICommand UninstallDriverCommand { get; }
     public ICommand SelectPresetCommand { get; }
+    public ICommand StartHotkeyCaptureCommand { get; }
 
     public MainViewModel()
     {
@@ -357,11 +471,15 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         {
             if (preset != null) SelectedPreset = preset;
         });
+        StartHotkeyCaptureCommand = new RelayCommand(() => IsCapturingHotkey = true);
+        RecallCalibrationCommand = new RelayCommand(RecallCalibration, () => HasCalibrationResult);
         OpenUpdateCommand = new RelayCommand(() =>
         {
             if (string.IsNullOrEmpty(UpdateAvailableUrl)) return;
             Process.Start(new ProcessStartInfo(UpdateAvailableUrl) { UseShellExecute = true });
         });
+        OpenVbCableLinkCommand = new RelayCommand(() =>
+            Process.Start(new ProcessStartInfo("https://vb-audio.com/Cable/") { UseShellExecute = true }));
 
         _engine.ErrorOccurred += (_, message) => StatusMessage = message;
 
@@ -383,10 +501,15 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         IsAutostartEnabled = AutostartService.IsEnabled();
 
         SelectedInputDevice = InputDevices.FirstOrDefault();
+        // ВАЖНО: если виртуальный кабель не найден, НЕ выбираем случайное
+        // реальное устройство (колонки/наушники) — иначе движок начнёт
+        // отправлять туда обработанный сигнал микрофона, и пользователь
+        // будет слышать сам себя (это и была причина жалобы "слышу себя
+        // постоянно"). Лучше оставить вывод пустым и явно попросить выбрать
+        // устройство или установить виртуальный кабель.
         SelectedOutputDevice =
-            OutputDevices.FirstOrDefault(d => d.Name.Contains(DriverInstaller.VirtualDeviceName, StringComparison.OrdinalIgnoreCase))
-            ?? OutputDevices.FirstOrDefault();
-        SelectedMonitorDevice = OutputDevices.FirstOrDefault();
+            OutputDevices.FirstOrDefault(d => d.Name.Contains(DriverInstaller.VirtualDeviceName, StringComparison.OrdinalIgnoreCase));
+        SelectedMonitorDevice = null;
 
         _meterTimer = new DispatcherTimer(DispatcherPriority.Render)
         {
@@ -496,11 +619,20 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
                 HighPassCutoffHz = settings.HighPassCutoffHz;
             }
 
+            if (settings.HasCalibrationResult)
+            {
+                _calibratedGateThresholdDb = settings.CalibratedGateThresholdDb;
+                _calibratedWetMix = settings.CalibratedWetMix;
+                _calibratedCompThresholdDb = settings.CalibratedCompThresholdDb;
+                _calibratedCompRatio = settings.CalibratedCompRatio;
+                HasCalibrationResult = true;
+            }
+
             if (settings.HotkeyModifiers != 0 && settings.HotkeyVirtualKey != 0)
             {
-                HotkeyOption? matched = HotkeyOption.BuiltIn.FirstOrDefault(
-                    h => h.Modifiers == settings.HotkeyModifiers && h.VirtualKey == settings.HotkeyVirtualKey);
-                if (matched != null) SelectedHotkey = matched;
+                HotkeyModifierFlags = settings.HotkeyModifiers;
+                HotkeyVirtualKey = settings.HotkeyVirtualKey;
+                HotkeyDisplayText = BuildHotkeyDisplayText(settings.HotkeyModifiers, settings.HotkeyVirtualKey);
             }
 
             _publishedDriverInfName = settings.PublishedDriverInfName;
@@ -532,11 +664,16 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             CompressorThresholdDb = CompressorThresholdDb,
             CompressorRatio = CompressorRatio,
             HighPassCutoffHz = HighPassCutoffHz,
-            HotkeyModifiers = SelectedHotkey.Modifiers,
-            HotkeyVirtualKey = SelectedHotkey.VirtualKey,
+            HotkeyModifiers = HotkeyModifierFlags,
+            HotkeyVirtualKey = HotkeyVirtualKey,
             LaunchOnStartup = IsAutostartEnabled,
             PublishedDriverInfName = _publishedDriverInfName,
             HasDspSettings = true,
+            HasCalibrationResult = HasCalibrationResult,
+            CalibratedGateThresholdDb = _calibratedGateThresholdDb,
+            CalibratedWetMix = _calibratedWetMix,
+            CalibratedCompThresholdDb = _calibratedCompThresholdDb,
+            CalibratedCompRatio = _calibratedCompRatio,
         };
 
         await _settingsService.SaveAsync(settings);
@@ -575,15 +712,48 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
         try
         {
-            CalibrationResult result = await calibrationEngine.RunAsync(progress, _calibrationCts.Token);
+            // Пресет "снимается" сразу — теперь активна калибровка, а не фиксированный пресет.
+            _selectedPreset = null;
+            OnPropertyChanged(nameof(SelectedPreset));
+            ActivePresetLabel = "Автонастройка выполняется...";
 
-            // Синхронизируем прокси-свойства (и, соответственно, слайдеры в UI)
-            // с результатом калибровки.
-            GateThresholdDb = result.GateThresholdDb;
-            DenoiserWetMix = result.DenoiserWetMix;
-            AgcTargetLevelDb = -18f;
-            CompressorThresholdDb = result.CompressorThresholdDb;
-            CompressorRatio = result.CompressorRatio;
+            CalibrationResult result = await calibrationEngine.RunAsync(progress, _calibrationCts.Token, (stage, partial) =>
+            {
+                // Реальные, промежуточные значения применяются к ползункам сразу
+                // после каждого этапа — пользователь видит, что программа
+                // ДЕЙСТВИТЕЛЬНО анализирует его микрофон здесь и сейчас, а не
+                // просто крутит прогресс-бар 15 секунд и подставляет числа в конце.
+                _isApplyingPresetOrCalibration = true;
+                try
+                {
+                    switch (stage)
+                    {
+                        case 1:
+                            GateThresholdDb = partial.GateThresholdDb;
+                            DenoiserWetMix = partial.DenoiserWetMix;
+                            break;
+                        case 2:
+                            AgcTargetLevelDb = -18f;
+                            break;
+                        case 3:
+                            CompressorThresholdDb = partial.CompressorThresholdDb;
+                            CompressorRatio = partial.CompressorRatio;
+                            break;
+                    }
+                }
+                finally
+                {
+                    _isApplyingPresetOrCalibration = false;
+                }
+            });
+
+            _calibratedGateThresholdDb = result.GateThresholdDb;
+            _calibratedWetMix = result.DenoiserWetMix;
+            _calibratedCompThresholdDb = result.CompressorThresholdDb;
+            _calibratedCompRatio = result.CompressorRatio;
+            HasCalibrationResult = true;
+            ActivePresetLabel = "Автонастройка (моя калибровка)";
+            ScheduleSettingsSave();
 
             CalibrationInstruction = "Калибровка завершена.";
             CalibrationProgress = 100;

@@ -37,4 +37,13 @@ public sealed class AppSettings
     public string? PublishedDriverInfName { get; set; }
 
     public bool HasDspSettings { get; set; }
+
+    /// <summary>Результат последней успешной автокалибровки — хранится отдельно от
+    /// текущих значений ползунков, чтобы применение пресета не "стирало" возможность
+    /// вернуться к собственной калибровке пользователя.</summary>
+    public bool HasCalibrationResult { get; set; }
+    public float CalibratedGateThresholdDb { get; set; }
+    public float CalibratedWetMix { get; set; }
+    public float CalibratedCompThresholdDb { get; set; }
+    public float CalibratedCompRatio { get; set; }
 }

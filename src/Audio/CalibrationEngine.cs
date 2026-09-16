@@ -31,7 +31,10 @@ public sealed class CalibrationEngine
         _engine = engine;
     }
 
-    public async Task<CalibrationResult> RunAsync(IProgress<CalibrationProgressEventArgs> progress, CancellationToken cancellationToken)
+    public async Task<CalibrationResult> RunAsync(
+        IProgress<CalibrationProgressEventArgs> progress,
+        CancellationToken cancellationToken,
+        Action<int, CalibrationResult>? onStageApplied = null)
     {
         var result = new CalibrationResult();
 
@@ -53,6 +56,7 @@ public sealed class CalibrationEngine
         };
 
         ApplyStageOneSettings(result);
+        onStageApplied?.Invoke(1, result);
 
         // --- Этап 2 (5-10с): анализ обычной речи ---
         var (speechMeanSquare, _) = await MeasurePhaseAsync(
@@ -63,6 +67,7 @@ public sealed class CalibrationEngine
         result.AgcTargetGainDb = -18f - speechAverageRmsDb;
 
         ApplyStageTwoSettings();
+        onStageApplied?.Invoke(2, result);
 
         // --- Этап 3 (10-15с): анализ громкой/эмоциональной речи ---
         var (_, loudPeakDb) = await MeasurePhaseAsync(
@@ -77,6 +82,7 @@ public sealed class CalibrationEngine
         result.LimiterCeilingDb = -2f;
 
         ApplyStageThreeSettings(result);
+        onStageApplied?.Invoke(3, result);
 
         return result;
     }

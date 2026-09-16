@@ -61,6 +61,7 @@
             <conv:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
             <conv:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
             <conv:GainReductionToPercentConverter x:Key="GainReductionToPercentConverter"/>
+            <conv:PresetActiveConverter x:Key="PresetActiveConverter"/>
             <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
 
             <!-- ===================== Базовые стили ===================== -->

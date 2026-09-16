@@ -41,7 +41,7 @@
                             <TextBlock Text="МИКРОФОН ЗАГЛУШЕН" Foreground="{StaticResource DangerBrush}" Visibility="{Binding IsMuted, Converter={StaticResource BoolToVisibilityConverter}}"/>
                         </Grid>
                         <Border Background="{StaticResource SurfaceAltBrush}" CornerRadius="4" Padding="6,3">
-                            <TextBlock Text="{Binding SelectedHotkey.DisplayName}" FontFamily="{StaticResource MonoFontFamily}" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <TextBlock Text="{Binding HotkeyDisplayText}" FontFamily="{StaticResource MonoFontFamily}" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
                         </Border>
                     </StackPanel>
                 </ToggleButton>
@@ -160,11 +160,17 @@
                                 Visibility="{Binding IsDriverInstalled, Converter={StaticResource InverseBoolToVisibilityConverter}}">
                             <StackPanel>
                                 <TextBlock TextWrapping="Wrap" Style="{StaticResource MonoLabelStyle}" Foreground="{StaticResource DangerBrush}" Margin="0,0,0,10">
-                                    Виртуальное устройство «NeuroMicrophone Cable» не найдено. Если пакет драйвера
-                                    уже лежит в папке Driver\Package рядом с приложением — нажмите кнопку ниже.
+                                    Виртуальный аудиокабель не найден. Программа не может сама создать и подписать
+                                    драйвер Windows — это требование безопасности самой ОС, а не её ограничение.
+                                    Самый простой рабочий вариант — бесплатный VB-CABLE (проверенное стороннее
+                                    решение): установите его и выберите в списке "Виртуальный вывод" выше.
                                 </TextBlock>
-                                <Button Content="УСТАНОВИТЬ ДРАЙВЕР" Style="{StaticResource SecondaryButtonStyle}"
-                                        Command="{Binding InstallDriverCommand}" HorizontalAlignment="Left"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="СКАЧАТЬ VB-CABLE" Style="{StaticResource SecondaryButtonStyle}"
+                                            Command="{Binding OpenVbCableLinkCommand}" HorizontalAlignment="Left" Margin="0,0,8,0"/>
+                                    <Button Content="У МЕНЯ СВОЙ ДРАЙВЕР" Style="{StaticResource SecondaryButtonStyle}"
+                                            Command="{Binding InstallDriverCommand}" HorizontalAlignment="Left"/>
+                                </StackPanel>
                             </StackPanel>
                         </Border>
 
@@ -185,13 +191,48 @@
                         <Border Style="{StaticResource CardBorderStyle}">
                             <StackPanel>
                                 <TextBlock Text="ПРЕСЕТЫ" Style="{StaticResource CardHeaderStyle}" Margin="0,0,0,10"/>
+
+                                <Button Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Left" Margin="0,0,0,6"
+                                        Command="{Binding RecallCalibrationCommand}">
+                                    <Grid>
+                                        <TextBlock Text="🎯 МОЯ АВТОНАСТРОЙКА" Foreground="{StaticResource PurpleBrush}"/>
+                                    </Grid>
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding ActivePresetLabel}" Value="Автонастройка (моя калибровка)">
+                                                    <Setter Property="BorderBrush" Value="{StaticResource PurpleBrush}"/>
+                                                    <Setter Property="Background" Value="{StaticResource SurfaceLightBrush}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+
                                 <ItemsControl ItemsSource="{Binding Presets}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Button Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Stretch"
+                                            <Button HorizontalAlignment="Stretch"
                                                     HorizontalContentAlignment="Left" Margin="0,0,0,6"
                                                     Command="{Binding DataContext.SelectPresetCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}">
+                                                <Button.Style>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Value="True">
+                                                                <DataTrigger.Binding>
+                                                                    <MultiBinding Converter="{StaticResource PresetActiveConverter}">
+                                                                        <Binding Path="Name"/>
+                                                                        <Binding Path="DataContext.ActivePresetLabel" RelativeSource="{RelativeSource AncestorType=ItemsControl}"/>
+                                                                    </MultiBinding>
+                                                                </DataTrigger.Binding>
+                                                                <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                                                                <Setter Property="Background" Value="{StaticResource SurfaceLightBrush}"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
                                                 <TextBlock Text="{Binding Name}"/>
                                             </Button>
                                         </DataTemplate>
@@ -241,7 +282,10 @@
 
                         <Border Style="{StaticResource CardBorderStyle}">
                             <StackPanel>
-                                <TextBlock Text="ТОНКАЯ НАСТРОЙКА DSP" Style="{StaticResource CardHeaderStyle}" Margin="0,0,0,14"/>
+                                <Grid Margin="0,0,0,14">
+                                    <TextBlock Text="ТОНКАЯ НАСТРОЙКА DSP" Style="{StaticResource CardHeaderStyle}" HorizontalAlignment="Left"/>
+                                    <TextBlock Text="{Binding ActivePresetLabel}" Style="{StaticResource MonoLabelStyle}" FontSize="10" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
+                                </Grid>
 
                                 <Grid Margin="0,0,0,4">
                                     <TextBlock Text="СРЕЗ НИЗКИХ ЧАСТОТ" Style="{StaticResource MonoLabelStyle}" HorizontalAlignment="Left"/>
@@ -287,7 +331,24 @@
                 <Border Style="{StaticResource CardBorderStyle}">
                     <StackPanel>
                         <TextBlock Text="ГОРЯЧАЯ КЛАВИША ЗАГЛУШКИ МИКРОФОНА" Style="{StaticResource CardHeaderStyle}" Margin="0,0,0,10"/>
-                        <ComboBox ItemsSource="{Binding HotkeyOptions}" SelectedItem="{Binding SelectedHotkey}" Margin="0,0,0,16"/>
+                        <Grid Margin="0,0,0,16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Background="{StaticResource SurfaceAltBrush}" BorderBrush="{StaticResource BorderBrush2}"
+                                    BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="0,0,10,0">
+                                <Grid>
+                                    <TextBlock Text="{Binding HotkeyDisplayText}" FontFamily="{StaticResource MonoFontFamily}" FontWeight="Bold"
+                                               VerticalAlignment="Center" Visibility="{Binding IsCapturingHotkey, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                                    <TextBlock Text="Нажмите комбинацию (1 модификатор + клавиша, Esc — отмена)..." FontFamily="{StaticResource MonoFontFamily}"
+                                               FontSize="11" Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center"
+                                               Visibility="{Binding IsCapturingHotkey, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                </Grid>
+                            </Border>
+                            <Button Grid.Column="1" Content="ЗАПИСАТЬ" Style="{StaticResource SecondaryButtonStyle}"
+                                    Command="{Binding StartHotkeyCaptureCommand}"/>
+                        </Grid>
 
                         <CheckBox Content="ЗАПУСКАТЬ ПРИ СТАРТЕ WINDOWS" IsChecked="{Binding IsAutostartEnabled}" Margin="0,0,0,16"/>
 
