@@ -459,7 +459,6 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public ICommand InstallDriverCommand { get; }
     public ICommand UninstallDriverCommand { get; }
     public ICommand SelectPresetCommand { get; }
-    public ICommand StartHotkeyCaptureCommand { get; }
 
     public MainViewModel()
     {
