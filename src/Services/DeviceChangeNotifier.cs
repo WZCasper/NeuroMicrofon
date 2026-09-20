@@ -24,7 +24,22 @@ public sealed class DeviceChangeNotifier : IMMNotificationClient, IDisposable
     public DeviceChangeNotifier(string watchedDeviceId)
     {
         _watchedDeviceId = watchedDeviceId;
-        _enumerator.RegisterEndpointNotificationCallback(this);
+
+        try
+        {
+            _enumerator.RegisterEndpointNotificationCallback(this);
+        }
+        catch
+        {
+            // Если регистрация колбэка не удалась, конструктор не завершится
+            // успешно — вызывающий код никогда не получит ссылку на этот
+            // объект и не сможет вызвать Dispose(). Освобождаем COM-обёртку
+            // enumerator здесь же, вручную, иначе она останется живой до
+            // сборки мусора (у COM-объектов NAudio нет финализатора,
+            // гарантирующего детерминированное освобождение).
+            _enumerator.Dispose();
+            throw;
+        }
     }
 
     public void OnDeviceStateChanged(string deviceId, DeviceState newState)
