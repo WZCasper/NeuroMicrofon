@@ -37,7 +37,12 @@ public sealed class SettingsService
         {
             if (!File.Exists(_settingsFilePath)) return null;
 
-            await using FileStream stream = File.OpenRead(_settingsFilePath);
+            // ConfigureAwait(false) нужен и на самой операции, и на неявном
+            // await, который "await using" вызывает при выходе из блока
+            // (DisposeAsync) — иначе гарантия "эта цепочка никогда не
+            // пытается вернуться в поток UI" была бы неполной.
+            FileStream stream = File.OpenRead(_settingsFilePath);
+            await using ConfiguredAsyncDisposable _ = stream.ConfigureAwait(false);
             return await JsonSerializer.DeserializeAsync<AppSettings>(stream, JsonOptions).ConfigureAwait(false);
         }
         catch (Exception)
@@ -51,7 +56,8 @@ public sealed class SettingsService
     {
         try
         {
-            await using FileStream stream = File.Create(_settingsFilePath);
+            FileStream stream = File.Create(_settingsFilePath);
+            await using ConfiguredAsyncDisposable _ = stream.ConfigureAwait(false);
             await JsonSerializer.SerializeAsync(stream, settings, JsonOptions).ConfigureAwait(false);
             return true;
         }
