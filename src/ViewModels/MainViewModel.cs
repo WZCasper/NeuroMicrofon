@@ -675,14 +675,22 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             CalibratedCompRatio = _calibratedCompRatio,
         };
 
-        await _settingsService.SaveAsync(settings);
+        // ConfigureAwait(false) обязателен здесь: MainWindow_Closing вызывает
+        // FlushSettingsAsync().GetAwaiter().GetResult() синхронно, блокируя
+        // поток UI. Без ConfigureAwait(false) продолжение после await
+        // попыталось бы вернуться в тот же (заблокированный) поток UI через
+        // SynchronizationContext — это классический ASP.NET/WPF deadlock.
+        // Гарантия должна выполняться на каждом шаге всей цепочки await,
+        // а не только "по факту" в её нынешней реализации — поэтому
+        // ConfigureAwait(false) стоит и здесь, и в FlushSettingsAsync ниже.
+        await _settingsService.SaveAsync(settings).ConfigureAwait(false);
     }
 
     /// <summary>Принудительно сбрасывает отложенное сохранение — вызывается при закрытии приложения.</summary>
     public async Task FlushSettingsAsync()
     {
         _saveDebounceTimer.Stop();
-        await SaveSettingsAsync();
+        await SaveSettingsAsync().ConfigureAwait(false);
     }
 
     private async Task RunCalibrationAsync()
