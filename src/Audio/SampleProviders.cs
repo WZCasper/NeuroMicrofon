@@ -83,6 +83,20 @@ public sealed class ChannelExpanderSampleProvider : ISampleProvider
 
     public int Read(float[] buffer, int offset, int count)
     {
+        // Контракт ISampleProvider.Read: count — это количество float-сэмплов
+        // (не кадров), поэтому оно обязано быть кратно числу каналов формата,
+        // который WaveFormat объявляет для этого провайдера. NAudio-стек
+        // (WasapiOut, BufferedWaveProvider и т.п.) всегда соблюдает это на
+        // практике, но проверка здесь превращает молчаливое, трудноуловимое
+        // искажение звука (обрезанный последний кадр) в понятную ошибку сразу
+        // в момент нарушения контракта, а не где-то в реальном воспроизведении.
+        if (count % _outputChannels != 0)
+        {
+            throw new ArgumentException(
+                $"count ({count}) должен быть кратен числу выходных каналов ({_outputChannels}).",
+                nameof(count));
+        }
+
         int framesRequested = count / _outputChannels;
         if (_monoScratch.Length < framesRequested)
         {
@@ -101,6 +115,14 @@ public sealed class ChannelExpanderSampleProvider : ISampleProvider
             }
         }
 
+        // Возвращаем ровно столько float-сэмплов, сколько реально записали в
+        // buffer (framesRead кадров по _outputChannels каналов каждый).
+        // Мы намеренно НЕ трогаем и НЕ обнуляем хвост buffer после этой
+        // границы: часть буфера за пределами возвращённого значения по
+        // контракту ISampleProvider считается невалидной и не должна
+        // читаться вызывающим кодом — так же ведут себя все стандартные
+        // провайдеры NAudio. Обнуление задним числом создало бы иллюзию
+        // валидных данных там, где их по контракту быть не должно.
         return framesRead * _outputChannels;
     }
 }
