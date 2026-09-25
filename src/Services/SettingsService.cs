@@ -54,16 +54,48 @@ public sealed class SettingsService
 
     public async Task<bool> SaveAsync(AppSettings settings)
     {
+        // Пишем во временный файл и только затем атомарно заменяем им
+        // settings.json — File.Move с overwrite: true в пределах одного
+        // тома выполняется как атомарное переименование на уровне файловой
+        // системы. Если приложение упадёт или пропадёт питание посреди
+        // записи, settings.json либо останется прежним, либо станет новым,
+        // но никогда не окажется наполовину записанным и повреждённым
+        // (раньше запись шла прямо в settings.json через File.Create,
+        // что не давало такой гарантии).
+        string tempFilePath = _settingsFilePath + $".{Guid.NewGuid():N}.tmp";
+
         try
         {
-            FileStream stream = File.Create(_settingsFilePath);
-            await using ConfiguredAsyncDisposable _ = stream.ConfigureAwait(false);
-            await JsonSerializer.SerializeAsync(stream, settings, JsonOptions).ConfigureAwait(false);
+            FileStream stream = File.Create(tempFilePath);
+            await using (stream.ConfigureAwait(false))
+            {
+                await JsonSerializer.SerializeAsync(stream, settings, JsonOptions).ConfigureAwait(false);
+            }
+
+            // К этому моменту поток уже закрыт и сброшен на диск — можно
+            // безопасно переименовывать/заменять итоговый файл.
+            File.Move(tempFilePath, _settingsFilePath, overwrite: true);
             return true;
         }
         catch (Exception)
         {
             return false;
+        }
+        finally
+        {
+            // Если Move не выполнился (или сериализация упала раньше) —
+            // не оставляем временный файл висеть в папке настроек.
+            try
+            {
+                if (File.Exists(tempFilePath))
+                {
+                    File.Delete(tempFilePath);
+                }
+            }
+            catch (Exception)
+            {
+                // Не критично — не мешаем основному результату SaveAsync.
+            }
         }
     }
 }
