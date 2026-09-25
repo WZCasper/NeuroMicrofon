@@ -21,15 +21,49 @@ public sealed class Compressor : ISampleProvider
     private readonly ISampleProvider _source;
     private readonly int _channels;
     private readonly int _sampleRate;
+
+    // Коэффициент RMS-детектора (окно ~20 мс) зависит только от частоты
+    // дискретизации, которая не меняется после создания — вычисляется
+    // один раз в конструкторе, а не на каждый вызов Read().
+    private readonly double _rmsCoeff;
+
     private double _runningMeanSquare;
     private float _currentGainReductionDb;
+
+    private float _attackMs = 10f;
+    private float _releaseMs = 150f;
+    private float _makeupGainDb;
+    private bool _coefficientsDirty = true;
+
+    // Кэш attack/release/makeup — пересчитывается только при изменении
+    // соответствующего параметра, а не на каждый вызов Read() (тот же
+    // приём, что уже применяется в HighPassFilter).
+    private float _attackCoeff;
+    private float _releaseCoeff;
+    private float _makeupLinear = 1f;
 
     public float ThresholdDb { get; set; } = -12f;
     public float Ratio { get; set; } = 3f;
     public float KneeDb { get; set; } = 6f;
-    public float AttackMs { get; set; } = 10f;
-    public float ReleaseMs { get; set; } = 150f;
-    public float MakeupGainDb { get; set; } = 0f;
+
+    public float AttackMs
+    {
+        get => _attackMs;
+        set { if (_attackMs == value) return; _attackMs = value; _coefficientsDirty = true; }
+    }
+
+    public float ReleaseMs
+    {
+        get => _releaseMs;
+        set { if (_releaseMs == value) return; _releaseMs = value; _coefficientsDirty = true; }
+    }
+
+    public float MakeupGainDb
+    {
+        get => _makeupGainDb;
+        set { if (_makeupGainDb == value) return; _makeupGainDb = value; _coefficientsDirty = true; }
+    }
+
     public bool Enabled { get; set; } = true;
 
     /// <summary>
@@ -46,6 +80,7 @@ public sealed class Compressor : ISampleProvider
         _source = source;
         _channels = source.WaveFormat.Channels;
         _sampleRate = source.WaveFormat.SampleRate;
+        _rmsCoeff = 1.0 - Math.Exp(-1.0 / (0.02 * _sampleRate));
     }
 
     public int Read(float[] buffer, int offset, int count)
@@ -53,13 +88,9 @@ public sealed class Compressor : ISampleProvider
         int samplesRead = _source.Read(buffer, offset, count);
         if (!Enabled || samplesRead <= 0) return samplesRead;
 
-        int frames = samplesRead / _channels;
+        RecomputeCoefficientsIfNeeded();
 
-        // Детектор с окном ~20 мс — классический выбор для голосовых компрессоров.
-        double rmsCoeff = 1.0 - Math.Exp(-1.0 / (0.02 * _sampleRate));
-        float attackCoeff = ComputeCoefficient(AttackMs);
-        float releaseCoeff = ComputeCoefficient(ReleaseMs);
-        float makeupLinear = LevelMeter.DbToLinear(MakeupGainDb);
+        int frames = samplesRead / _channels;
 
         for (int frame = 0; frame < frames; frame++)
         {
@@ -72,17 +103,17 @@ public sealed class Compressor : ISampleProvider
                 frameSumSquares += s * s;
             }
             double frameMeanSquare = frameSumSquares / _channels;
-            _runningMeanSquare += (frameMeanSquare - _runningMeanSquare) * rmsCoeff;
+            _runningMeanSquare += (frameMeanSquare - _runningMeanSquare) * _rmsCoeff;
 
             double rms = Math.Sqrt(Math.Max(_runningMeanSquare, 1e-12));
             float inputDb = LevelMeter.LinearToDb(rms);
 
             float targetGainReductionDb = ComputeGainReduction(inputDb);
 
-            float coeff = targetGainReductionDb < _currentGainReductionDb ? attackCoeff : releaseCoeff;
+            float coeff = targetGainReductionDb < _currentGainReductionDb ? _attackCoeff : _releaseCoeff;
             _currentGainReductionDb += (targetGainReductionDb - _currentGainReductionDb) * coeff;
 
-            float totalGain = LevelMeter.DbToLinear(_currentGainReductionDb) * makeupLinear;
+            float totalGain = LevelMeter.DbToLinear(_currentGainReductionDb) * _makeupLinear;
             for (int ch = 0; ch < _channels; ch++)
             {
                 buffer[frameOffset + ch] *= totalGain;
@@ -90,6 +121,16 @@ public sealed class Compressor : ISampleProvider
         }
 
         return samplesRead;
+    }
+
+    private void RecomputeCoefficientsIfNeeded()
+    {
+        if (!_coefficientsDirty) return;
+
+        _attackCoeff = ComputeCoefficient(_attackMs);
+        _releaseCoeff = ComputeCoefficient(_releaseMs);
+        _makeupLinear = LevelMeter.DbToLinear(_makeupGainDb);
+        _coefficientsDirty = false;
     }
 
     /// <summary>

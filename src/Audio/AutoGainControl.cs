@@ -19,15 +19,42 @@ public sealed class AutoGainControl : ISampleProvider
     private readonly ISampleProvider _source;
     private readonly int _channels;
     private readonly int _sampleRate;
+
+    // Коэффициент RMS-детектора (окно ~300 мс) зависит только от частоты
+    // дискретизации, которая не меняется после создания — вычисляется
+    // один раз в конструкторе, а не на каждый вызов Read().
+    private readonly double _rmsCoeff;
+
     private double _runningMeanSquare;
     private float _currentGainDb;
+
+    private float _attackMs = 50f;
+    private float _releaseMs = 500f;
+    private bool _coefficientsDirty = true;
+
+    // Кэш attack/release — пересчитывается только при изменении
+    // соответствующего параметра, а не на каждый вызов Read() (тот же
+    // приём, что уже применяется в HighPassFilter).
+    private float _attackCoeff;
+    private float _releaseCoeff;
 
     public float TargetLevelDb { get; set; } = -18f;
     public float NoiseFloorDb { get; set; } = -55f;
     public float MaxGainDb { get; set; } = 24f;
     public float MinGainDb { get; set; } = -12f;
-    public float AttackMs { get; set; } = 50f;
-    public float ReleaseMs { get; set; } = 500f;
+
+    public float AttackMs
+    {
+        get => _attackMs;
+        set { if (_attackMs == value) return; _attackMs = value; _coefficientsDirty = true; }
+    }
+
+    public float ReleaseMs
+    {
+        get => _releaseMs;
+        set { if (_releaseMs == value) return; _releaseMs = value; _coefficientsDirty = true; }
+    }
+
     public bool Enabled { get; set; } = true;
 
     public WaveFormat WaveFormat => _source.WaveFormat;
@@ -37,6 +64,7 @@ public sealed class AutoGainControl : ISampleProvider
         _source = source;
         _channels = source.WaveFormat.Channels;
         _sampleRate = source.WaveFormat.SampleRate;
+        _rmsCoeff = 1.0 - Math.Exp(-1.0 / (0.3 * _sampleRate));
     }
 
     public int Read(float[] buffer, int offset, int count)
@@ -44,14 +72,9 @@ public sealed class AutoGainControl : ISampleProvider
         int samplesRead = _source.Read(buffer, offset, count);
         if (!Enabled || samplesRead <= 0) return samplesRead;
 
-        int frames = samplesRead / _channels;
+        RecomputeCoefficientsIfNeeded();
 
-        // Детектор RMS со временем усреднения ~300 мс — достаточно медленно,
-        // чтобы не реагировать на отдельные пики, но достаточно быстро,
-        // чтобы отслеживать смену громкости речи.
-        double rmsCoeff = 1.0 - Math.Exp(-1.0 / (0.3 * _sampleRate));
-        float attackCoeff = ComputeCoefficient(AttackMs);
-        float releaseCoeff = ComputeCoefficient(ReleaseMs);
+        int frames = samplesRead / _channels;
 
         for (int frame = 0; frame < frames; frame++)
         {
@@ -64,7 +87,7 @@ public sealed class AutoGainControl : ISampleProvider
                 frameSumSquares += s * s;
             }
             double frameMeanSquare = frameSumSquares / _channels;
-            _runningMeanSquare += (frameMeanSquare - _runningMeanSquare) * rmsCoeff;
+            _runningMeanSquare += (frameMeanSquare - _runningMeanSquare) * _rmsCoeff;
 
             double rms = Math.Sqrt(_runningMeanSquare);
             float currentDb = LevelMeter.LinearToDb(rms);
@@ -72,7 +95,7 @@ public sealed class AutoGainControl : ISampleProvider
             if (currentDb >= NoiseFloorDb)
             {
                 float desiredGainDb = Math.Clamp(TargetLevelDb - currentDb, MinGainDb, MaxGainDb);
-                float coeff = desiredGainDb < _currentGainDb ? attackCoeff : releaseCoeff;
+                float coeff = desiredGainDb < _currentGainDb ? _attackCoeff : _releaseCoeff;
                 _currentGainDb += (desiredGainDb - _currentGainDb) * coeff;
             }
             // иначе: сигнал — это фоновый шум, а не речь; усиление удерживается на текущем значении.
@@ -85,6 +108,15 @@ public sealed class AutoGainControl : ISampleProvider
         }
 
         return samplesRead;
+    }
+
+    private void RecomputeCoefficientsIfNeeded()
+    {
+        if (!_coefficientsDirty) return;
+
+        _attackCoeff = ComputeCoefficient(_attackMs);
+        _releaseCoeff = ComputeCoefficient(_releaseMs);
+        _coefficientsDirty = false;
     }
 
     private float ComputeCoefficient(float timeMs)

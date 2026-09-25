@@ -26,8 +26,28 @@ public sealed class Limiter : ISampleProvider
     private int _writePos;
     private float _currentGain = 1f;
 
-    public float CeilingDb { get; set; } = -2f;
-    public float ReleaseMs { get; set; } = 100f;
+    private float _ceilingDb = -2f;
+    private float _releaseMs = 100f;
+    private bool _coefficientsDirty = true;
+
+    // Кэш ceiling/release — пересчитывается только при изменении
+    // соответствующего параметра, а не на каждый вызов Read() (тот же
+    // приём, что уже применяется в HighPassFilter).
+    private float _ceilingLinear;
+    private float _releaseCoeff;
+
+    public float CeilingDb
+    {
+        get => _ceilingDb;
+        set { if (_ceilingDb == value) return; _ceilingDb = value; _coefficientsDirty = true; }
+    }
+
+    public float ReleaseMs
+    {
+        get => _releaseMs;
+        set { if (_releaseMs == value) return; _releaseMs = value; _coefficientsDirty = true; }
+    }
+
     public bool Enabled { get; set; } = true;
 
     /// <summary>
@@ -54,8 +74,8 @@ public sealed class Limiter : ISampleProvider
         int samplesRead = _source.Read(buffer, offset, count);
         if (samplesRead <= 0 || !Enabled) return samplesRead;
 
-        float ceilingLinear = LevelMeter.DbToLinear(CeilingDb);
-        float releaseCoeff = ComputeCoefficient(ReleaseMs);
+        RecomputeCoefficientsIfNeeded();
+
         int frames = samplesRead / _channels;
 
         for (int frame = 0; frame < frames; frame++)
@@ -88,7 +108,7 @@ public sealed class Limiter : ISampleProvider
                 if (_peakWindow[i] > windowPeak) windowPeak = _peakWindow[i];
             }
 
-            float requiredGain = windowPeak > ceilingLinear ? ceilingLinear / windowPeak : 1f;
+            float requiredGain = windowPeak > _ceilingLinear ? _ceilingLinear / windowPeak : 1f;
 
             // Усиление может упасть мгновенно (гарантия непревышения потолка),
             // но восстанавливается плавно по времени Release.
@@ -98,14 +118,14 @@ public sealed class Limiter : ISampleProvider
             }
             else
             {
-                _currentGain += (requiredGain - _currentGain) * releaseCoeff;
+                _currentGain += (requiredGain - _currentGain) * _releaseCoeff;
             }
 
             for (int ch = 0; ch < _channels; ch++)
             {
                 float sample = _delayedFrameScratch[ch] * _currentGain;
                 // Финальный предохранитель: гарантирует потолок даже при экстремальных транзиентах.
-                sample = Math.Clamp(sample, -ceilingLinear, ceilingLinear);
+                sample = Math.Clamp(sample, -_ceilingLinear, _ceilingLinear);
                 buffer[frameOffset + ch] = sample;
             }
 
@@ -113,6 +133,15 @@ public sealed class Limiter : ISampleProvider
         }
 
         return samplesRead;
+    }
+
+    private void RecomputeCoefficientsIfNeeded()
+    {
+        if (!_coefficientsDirty) return;
+
+        _ceilingLinear = LevelMeter.DbToLinear(_ceilingDb);
+        _releaseCoeff = ComputeCoefficient(_releaseMs);
+        _coefficientsDirty = false;
     }
 
     private float ComputeCoefficient(float timeMs)

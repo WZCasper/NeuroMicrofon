@@ -34,10 +34,45 @@ public sealed class NoiseGate : ISampleProvider
     private float _envelope = 1f; // текущий применяемый коэффициент усиления, 0..1
     private int _holdRemainingFrames;
 
-    public float ThresholdDb { get; set; } = -50f;
-    public float AttackMs { get; set; } = 5f;
-    public float HoldMs { get; set; } = 100f;
-    public float ReleaseMs { get; set; } = 150f;
+    private float _thresholdDb = -50f;
+    private float _attackMs = 5f;
+    private float _holdMs = 100f;
+    private float _releaseMs = 150f;
+    private bool _coefficientsDirty = true;
+
+    // Кэш вычисленных коэффициентов — пересчитывается только когда
+    // реально меняется один из параметров ниже, а не на каждый вызов
+    // Read() (тот же приём, что уже применяется в HighPassFilter).
+    private float _thresholdLinear;
+    private float _attackCoeff;
+    private float _releaseCoeff;
+    private int _holdFrames;
+
+    /// <summary>Порог задаётся движком калибровки как "уровень фонового шума + 6 дБ".</summary>
+    public float ThresholdDb
+    {
+        get => _thresholdDb;
+        set { if (_thresholdDb == value) return; _thresholdDb = value; _coefficientsDirty = true; }
+    }
+
+    public float AttackMs
+    {
+        get => _attackMs;
+        set { if (_attackMs == value) return; _attackMs = value; _coefficientsDirty = true; }
+    }
+
+    public float HoldMs
+    {
+        get => _holdMs;
+        set { if (_holdMs == value) return; _holdMs = value; _coefficientsDirty = true; }
+    }
+
+    public float ReleaseMs
+    {
+        get => _releaseMs;
+        set { if (_releaseMs == value) return; _releaseMs = value; _coefficientsDirty = true; }
+    }
+
     public float VadThreshold { get; set; } = 0.6f;
     public bool Enabled { get; set; } = true;
 
@@ -56,10 +91,7 @@ public sealed class NoiseGate : ISampleProvider
         int samplesRead = _source.Read(buffer, offset, count);
         if (!Enabled || samplesRead <= 0) return samplesRead;
 
-        float thresholdLinear = LevelMeter.DbToLinear(ThresholdDb);
-        float attackCoeff = ComputeCoefficient(AttackMs);
-        float releaseCoeff = ComputeCoefficient(ReleaseMs);
-        int holdFrames = Math.Max(0, (int)(HoldMs / 1000f * _sampleRate));
+        RecomputeCoefficientsIfNeeded();
 
         // VAD-значение читается один раз на весь вызов Read (а не на каждый
         // сэмпл) — оно и так обновляется реже, чем сэмплы поступают, так что
@@ -81,12 +113,12 @@ public sealed class NoiseGate : ISampleProvider
                 if (abs > frameMax) frameMax = abs;
             }
 
-            bool signalPresent = frameMax >= thresholdLinear || vadOpen;
+            bool signalPresent = frameMax >= _thresholdLinear || vadOpen;
             float targetGain;
 
             if (signalPresent)
             {
-                _holdRemainingFrames = holdFrames;
+                _holdRemainingFrames = _holdFrames;
                 targetGain = 1f;
             }
             else if (_holdRemainingFrames > 0)
@@ -99,7 +131,7 @@ public sealed class NoiseGate : ISampleProvider
                 targetGain = 0f; // Hold закончился — начинаем закрываться по Release
             }
 
-            float coeff = targetGain > _envelope ? attackCoeff : releaseCoeff;
+            float coeff = targetGain > _envelope ? _attackCoeff : _releaseCoeff;
             _envelope += (targetGain - _envelope) * coeff;
 
             for (int ch = 0; ch < _channels; ch++)
@@ -109,6 +141,17 @@ public sealed class NoiseGate : ISampleProvider
         }
 
         return samplesRead;
+    }
+
+    private void RecomputeCoefficientsIfNeeded()
+    {
+        if (!_coefficientsDirty) return;
+
+        _thresholdLinear = LevelMeter.DbToLinear(_thresholdDb);
+        _attackCoeff = ComputeCoefficient(_attackMs);
+        _releaseCoeff = ComputeCoefficient(_releaseMs);
+        _holdFrames = Math.Max(0, (int)(_holdMs / 1000f * _sampleRate));
+        _coefficientsDirty = false;
     }
 
     /// <summary>
