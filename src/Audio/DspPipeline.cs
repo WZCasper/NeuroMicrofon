@@ -1,3 +1,4 @@
+using System;
 using NAudio.Wave;
 
 namespace NeuroMicrophone.Audio;
@@ -11,8 +12,16 @@ namespace NeuroMicrophone.Audio;
 /// Каждая стадия остаётся публично доступной, чтобы CalibrationEngine и
 /// MainViewModel могли читать/менять её параметры в реальном времени без
 /// пересоздания всей цепочки.
+///
+/// Реализует IDisposable, потому что Denoiser (RnnoiseDenoiser) держит
+/// нативный, неуправляемый указатель на состояние RNNoise (rnnoise_create).
+/// Раньше DspPipeline не освобождался вообще: AudioEngine.Stop() просто
+/// обнулял ссылку на пайплайн, и нативная память RNNoise никогда не
+/// освобождалась — то есть каждое переключение микрофона/устройства вывода
+/// или перезапуск движка приводил к утечке. Теперь Dispose() обязателен
+/// к вызову перед тем, как отпустить ссылку на пайплайн (см. AudioEngine.Stop()).
 /// </summary>
-public sealed class DspPipeline : ISampleProvider
+public sealed class DspPipeline : ISampleProvider, IDisposable
 {
     public HighPassFilter HighPass { get; }
     public RnnoiseDenoiser Denoiser { get; }
@@ -44,4 +53,22 @@ public sealed class DspPipeline : ISampleProvider
     }
 
     public int Read(float[] buffer, int offset, int count) => _finalStage.Read(buffer, offset, count);
+
+    private bool _disposed;
+
+    /// <summary>
+    /// Освобождает нативное состояние RNNoise. Идемпотентен: повторный
+    /// вызов безопасен и ничего не делает (тот же приём, что уже
+    /// используется в HotkeyService/DeviceChangeNotifier).
+    /// </summary>
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        Denoiser.Dispose();
+    }
 }

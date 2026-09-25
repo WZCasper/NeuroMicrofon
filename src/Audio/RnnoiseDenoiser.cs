@@ -93,6 +93,16 @@ public sealed class RnnoiseDenoiser : ISampleProvider, IDisposable, IVoiceActivi
             _isAvailable = false;
             _state = IntPtr.Zero;
         }
+        catch (EntryPointNotFoundException)
+        {
+            // Файл rnnoise.dll есть, но не экспортирует ожидаемые функции —
+            // например, подменён несовместимой версией библиотеки. То же
+            // семейство сбоев, что и выше: работаем без шумоподавления,
+            // а не падаем при запуске (именно такого рода необработанное
+            // исключение уже один раз приводило к падению на старте).
+            _isAvailable = false;
+            _state = IntPtr.Zero;
+        }
     }
 
     public int Read(float[] buffer, int offset, int count)
@@ -164,8 +174,23 @@ public sealed class RnnoiseDenoiser : ISampleProvider, IDisposable, IVoiceActivi
         }
     }
 
+    private bool _disposed;
+
+    /// <summary>
+    /// Идемпотентен: повторный вызов безопасен и ничего не делает. Без этой
+    /// защиты второй вызов Dispose() привёл бы к повторному rnnoise_destroy
+    /// на одном и том же указателе — двойное освобождение нативной памяти,
+    /// неопределённое поведение вплоть до падения.
+    /// </summary>
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+
         if (_state != IntPtr.Zero)
         {
             RnnoiseNative.rnnoise_destroy(_state);

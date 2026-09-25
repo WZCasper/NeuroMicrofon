@@ -229,7 +229,7 @@ public sealed class AudioEngine : IDisposable
         if (_monitorOutput != null)
         {
             try { _monitorOutput.Stop(); } catch (Exception) { /* устройство могло уже исчезнуть */ }
-            _monitorOutput.Dispose();
+            try { _monitorOutput.Dispose(); } catch (Exception) { /* устройство могло уже исчезнуть при отключении */ }
             _monitorOutput = null;
         }
     }
@@ -271,7 +271,7 @@ public sealed class AudioEngine : IDisposable
             _capture.DataAvailable -= OnCaptureDataAvailable;
             _capture.RecordingStopped -= OnRecordingStopped;
             try { _capture.StopRecording(); } catch (Exception) { /* устройство могло уже исчезнуть */ }
-            _capture.Dispose();
+            try { _capture.Dispose(); } catch (Exception) { /* устройство могло уже исчезнуть при отключении */ }
             _capture = null;
         }
 
@@ -279,13 +279,20 @@ public sealed class AudioEngine : IDisposable
         {
             _output.PlaybackStopped -= OnPlaybackStopped;
             try { _output.Stop(); } catch (Exception) { /* устройство могло уже исчезнуть */ }
-            _output.Dispose();
+            try { _output.Dispose(); } catch (Exception) { /* устройство могло уже исчезнуть при отключении */ }
             _output = null;
         }
 
         _bufferedWaveProvider = null;
         _rawMeter = null;
+
+        // Освобождает нативное состояние RNNoise, которое держит Denoiser.
+        // Раньше здесь просто обнуляли ссылку — DspPipeline не был
+        // IDisposable, и нативная память утекала при каждом перезапуске
+        // движка (смена устройства ввода/вывода и т.п.).
+        _dsp?.Dispose();
         _dsp = null;
+
         _processedMeter = null;
         _muteStage = null;
         _monitorTap = null;
