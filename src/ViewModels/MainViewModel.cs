@@ -713,7 +713,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
         var progress = new Progress<CalibrationProgressEventArgs>(p =>
         {
-            CalibrationInstruction = $"{p.StepNumber}/3: {p.Instruction}";
+            CalibrationInstruction = $"{p.StepNumber}/4: {p.Instruction}";
             CalibrationProgress = p.OverallFraction * 100.0;
         });
 
@@ -729,7 +729,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
                 // Реальные, промежуточные значения применяются к ползункам сразу
                 // после каждого этапа — пользователь видит, что программа
                 // ДЕЙСТВИТЕЛЬНО анализирует его микрофон здесь и сейчас, а не
-                // просто крутит прогресс-бар 15 секунд и подставляет числа в конце.
+                // просто крутит прогресс-бар 20 секунд и подставляет числа в конце.
                 _isApplyingPresetOrCalibration = true;
                 try
                 {
@@ -745,6 +745,12 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
                         case 3:
                             CompressorThresholdDb = partial.CompressorThresholdDb;
                             CompressorRatio = partial.CompressorRatio;
+                            break;
+                        case 4:
+                            // Этап 4 (стук по клавиатуре/мышке) мог поднять порог
+                            // гейта выше того, что уже применил этап 1 — обновляем
+                            // ползунок финальным значением.
+                            GateThresholdDb = partial.GateThresholdDb;
                             break;
                     }
                 }
@@ -803,7 +809,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
     private async Task UninstallDriverAsync()
     {
-        DriverInstallResult result = await _driverInstaller.UninstallDriverAsync(_publishedDriverInfName, DriverInfFileName);
+        DriverInstallResult result = await _driverInstaller.UninstallDriverAsync(_publishedDriverInfName);
 
         if (result.IsSuccess)
         {

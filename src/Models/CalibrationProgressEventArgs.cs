@@ -19,7 +19,7 @@ public sealed class CalibrationProgressEventArgs : EventArgs
     /// <summary>Доля выполнения текущего этапа, от 0.0 до 1.0.</summary>
     public double PhaseFraction { get; }
 
-    /// <summary>Доля выполнения всей калибровки (все 3 этапа), от 0.0 до 1.0.</summary>
+    /// <summary>Доля выполнения всей калибровки (все 4 этапа), от 0.0 до 1.0.</summary>
     public double OverallFraction { get; }
 
     public CalibrationProgressEventArgs(int stepNumber, string instruction, double phaseFraction, double overallFraction)

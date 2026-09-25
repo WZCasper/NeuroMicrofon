@@ -104,7 +104,7 @@
                 <Setter Property="Padding" Value="16"/>
             </Style>
 
-            <!-- Маленький бейдж-пилюля (как "DSP PRO v1.0", "3 ЭТАПА / 15 СЕК"). -->
+            <!-- Маленький бейдж-пилюля (как "DSP PRO v1.0", "4 ЭТАПА / 20 СЕК"). -->
             <Style x:Key="BadgeTextStyle" TargetType="TextBlock">
                 <Setter Property="FontFamily" Value="{StaticResource MonoFontFamily}"/>
                 <Setter Property="FontSize" Value="10"/>

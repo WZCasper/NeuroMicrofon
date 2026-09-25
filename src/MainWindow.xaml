@@ -179,9 +179,9 @@
                             <StackPanel>
                                 <TextBlock Text="ИНТЕЛЛЕКТУАЛЬНАЯ АВТОКАЛИБРОВКА" Style="{StaticResource CardHeaderStyle}" Foreground="{StaticResource PurpleBrush}" Margin="0,0,0,8"/>
                                 <TextBlock TextWrapping="Wrap" Style="{StaticResource SecondaryTextStyle}" Margin="0,0,0,12">
-                                    3 этапа по 5 секунд: фоновый шум, обычная речь, громкая речь — параметры подбираются автоматически.
+                                    4 этапа по 5 секунд: фоновый шум, обычная речь, громкая речь, стук по клавиатуре/мышке — параметры подбираются автоматически.
                                 </TextBlock>
-                                <Button Content="АВТОНАСТРОЙКА (15 СЕК)" Style="{StaticResource CalibrationButtonStyle}"
+                                <Button Content="АВТОНАСТРОЙКА (20 СЕК)" Style="{StaticResource CalibrationButtonStyle}"
                                         Command="{Binding AutoTuneCommand}" HorizontalAlignment="Stretch" Margin="0,0,0,10"/>
                                 <ProgressBar Value="{Binding CalibrationProgress, Mode=OneWay}" Minimum="0" Maximum="100" Margin="0,0,0,8"/>
                                 <TextBlock Text="{Binding CalibrationInstruction}" TextWrapping="Wrap" Style="{StaticResource MonoLabelStyle}"/>

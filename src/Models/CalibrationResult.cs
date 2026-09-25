@@ -1,7 +1,7 @@
 namespace NeuroMicrophone.Models;
 
 /// <summary>
-/// Итог трёхэтапной 15-секундной калибровки: измеренные уровни и
+/// Итог четырёхэтапной 20-секундной калибровки: измеренные уровни и
 /// рассчитанные на их основе параметры DSP-цепочки. Хранится отдельно
 /// от DspPipeline, чтобы UI мог показать пользователю, что именно было
 /// измерено и почему выбраны такие настройки.
@@ -23,4 +23,12 @@ public sealed class CalibrationResult
     public float CompressorThresholdDb { get; set; }
     public float CompressorRatio { get; set; }
     public float LimiterCeilingDb { get; set; }
+
+    // --- Этап 4: ударный/механический шум (клавиатура, мышь) ---
+    /// <summary>
+    /// Измеренный пик ударного/механического шума. Использован, вместе
+    /// с SpeechAverageRmsDb, чтобы при необходимости поднять GateThresholdDb
+    /// выше типичного щелчка клавиатуры — см. CalibrationEngine.ComputeKeyboardAwareGateThreshold.
+    /// </summary>
+    public float KeyboardNoisePeakDb { get; set; }
 }
