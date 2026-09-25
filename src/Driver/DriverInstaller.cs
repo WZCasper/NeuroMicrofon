@@ -3,7 +3,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
+using System.Management;
 using System.Threading.Tasks;
 using NAudio.CoreAudioApi;
 
@@ -20,8 +20,8 @@ public sealed class DriverInstallResult
     /// <summary>
     /// "Опубликованное" имя INF в хранилище драйверов (например, "oem12.inf"),
     /// если его удалось определить сразу после установки. Может быть null,
-    /// даже если IsSuccess == true (например, если формат вывода pnputil
-    /// отличался от ожидаемого) — в этом случае используйте
+    /// даже если IsSuccess == true (например, если WMI ещё не успел
+    /// проиндексировать устройство) — в этом случае используйте
     /// DriverInstaller.FindPublishedDriverInfNameAsync позже.
     /// </summary>
     public string? PublishedInfName { get; }
@@ -110,7 +110,7 @@ public sealed class DriverInstaller
 
             if (exitCode == 0)
             {
-                string? publishedName = await FindPublishedDriverInfNameAsync(Path.GetFileName(infPath)).ConfigureAwait(false);
+                string? publishedName = await FindPublishedDriverInfNameAsync().ConfigureAwait(false);
                 return DriverInstallResult.Success(output, publishedName);
             }
 
@@ -131,58 +131,42 @@ public sealed class DriverInstaller
 
     /// <summary>
     /// Ищет "опубликованное" имя INF (вида oemNN.inf) в хранилище драйверов
-    /// Windows по исходному имени файла драйвера, разбирая вывод
-    /// "pnputil /enum-drivers". Это операция чтения — в отличие от
-    /// add-driver/delete-driver, прав администратора не требует, поэтому
+    /// Windows для устройства VirtualDeviceName через WMI (Win32_PnPSignedDriver).
+    /// Это операция чтения — прав администратора не требует, поэтому
     /// выполняется напрямую, без запроса повышения.
     ///
-    /// Примечание: текст вывода pnputil локализован под язык интерфейса
-    /// Windows, поэтому разбор ориентируется на английские подписи
-    /// "Published Name" / "Original Name". На локализованных системах
-    /// имена полей вывода могут отличаться — в этом случае метод вернёт null.
+    /// Раньше это делалось разбором текста "pnputil /enum-drivers" по
+    /// английским подписям "Published Name" / "Original Name" — на
+    /// локализованной (например, русской) Windows эти подписи выводятся на
+    /// другом языке, и разбор молча не находил совпадений. WMI возвращает
+    /// значения полей программно, независимо от языка интерфейса ОС, и
+    /// заодно избавляет от необходимости отдельно передавать исходное имя
+    /// INF-файла: ищем сразу по знакомому имени устройства.
+    /// LIKE, а не точное совпадение, — Windows на некоторых системах
+    /// добавляет к имени устройства дополнительный суффикс в скобках.
     /// </summary>
-    public async Task<string?> FindPublishedDriverInfNameAsync(string originalInfFileName)
+    public async Task<string?> FindPublishedDriverInfNameAsync()
     {
         try
         {
-            var startInfo = new ProcessStartInfo
+            return await Task.Run(() =>
             {
-                FileName = "pnputil.exe",
-                Arguments = "/enum-drivers",
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                CreateNoWindow = true,
-            };
+                using var searcher = new ManagementObjectSearcher(
+                    $"SELECT InfName FROM Win32_PnPSignedDriver WHERE DeviceName LIKE '%{VirtualDeviceName}%'");
 
-            using var process = Process.Start(startInfo);
-            if (process == null) return null;
-
-            string output = await process.StandardOutput.ReadToEndAsync().ConfigureAwait(false);
-            await process.WaitForExitAsync().ConfigureAwait(false);
-
-            // Записи в выводе pnputil /enum-drivers разделены пустыми строками —
-            // разбиваем на блоки и ищем блок, "Original Name" которого совпадает
-            // с исходным именем нашего INF-файла.
-            string[] blocks = Regex.Split(output, @"(?:\r?\n){2,}");
-
-            foreach (string block in blocks)
-            {
-                Match originalMatch = Regex.Match(block, @"Original Name\s*:\s*(\S+)", RegexOptions.IgnoreCase);
-                if (!originalMatch.Success) continue;
-
-                if (!string.Equals(originalMatch.Groups[1].Value, originalInfFileName, StringComparison.OrdinalIgnoreCase))
+                foreach (ManagementObject device in searcher.Get())
                 {
-                    continue;
+                    using (device)
+                    {
+                        if (device["InfName"] is string infName && !string.IsNullOrWhiteSpace(infName))
+                        {
+                            return infName;
+                        }
+                    }
                 }
 
-                Match publishedMatch = Regex.Match(block, @"Published Name\s*:\s*(\S+)", RegexOptions.IgnoreCase);
-                if (publishedMatch.Success)
-                {
-                    return publishedMatch.Groups[1].Value;
-                }
-            }
-
-            return null;
+                return null;
+            }).ConfigureAwait(false);
         }
         catch (Exception)
         {
@@ -194,15 +178,15 @@ public sealed class DriverInstaller
     /// Удаляет драйвер. pnputil ожидает "опубликованное" имя INF в
     /// хранилище драйверов (вида oemNN.inf), а не исходное имя файла.
     /// Если publishedInfName не передан, метод сначала попробует
-    /// определить его сам через FindPublishedDriverInfNameAsync, используя
-    /// originalInfFileNameForLookup. Запрашивает повышение прав точечно,
-    /// только на время этого вызова.
+    /// определить его сам через FindPublishedDriverInfNameAsync (по WMI,
+    /// без необходимости знать исходное имя INF-файла). Запрашивает
+    /// повышение прав точечно, только на время этого вызова.
     /// </summary>
-    public async Task<DriverInstallResult> UninstallDriverAsync(string? publishedInfName, string? originalInfFileNameForLookup = null)
+    public async Task<DriverInstallResult> UninstallDriverAsync(string? publishedInfName = null)
     {
-        if (string.IsNullOrWhiteSpace(publishedInfName) && !string.IsNullOrWhiteSpace(originalInfFileNameForLookup))
+        if (string.IsNullOrWhiteSpace(publishedInfName))
         {
-            publishedInfName = await FindPublishedDriverInfNameAsync(originalInfFileNameForLookup).ConfigureAwait(false);
+            publishedInfName = await FindPublishedDriverInfNameAsync().ConfigureAwait(false);
         }
 
         if (string.IsNullOrWhiteSpace(publishedInfName))

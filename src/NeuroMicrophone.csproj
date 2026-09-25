@@ -37,6 +37,12 @@
       явно, чтобы устранить любую неоднозначность при сборке.
     -->
     <PackageReference Include="Microsoft.Win32.Registry" Version="5.0.0" />
+    <!--
+      System.Management: WMI-запросы (Win32_PnPSignedDriver) в DriverInstaller,
+      используются вместо разбора локализуемого текстового вывода pnputil —
+      результат не зависит от языка интерфейса Windows.
+    -->
+    <PackageReference Include="System.Management" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup>

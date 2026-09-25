@@ -15,10 +15,10 @@
 ;
 ; 2) "Опубликованное" имя INF в хранилище драйверов (вида oemNN.inf)
 ;    присваивается системой во время установки и отличается от исходного
-;    имени файла. Секция [Code] ниже сама перехватывает вывод pnputil
-;    во время установки, вытаскивает из него это имя и сохраняет в
-;    реестр (HKLM\Software\NeuroMicrophone), чтобы деинсталлятор мог
-;    корректно удалить именно тот драйвер, который был установлен.
+;    имени файла. Секция [Code] ниже сама определяет это имя через WMI
+;    (Win32_PnPSignedDriver) сразу после установки и сохраняет в реестр
+;    (HKLM\Software\NeuroMicrophone), чтобы деинсталлятор мог корректно
+;    удалить именно тот драйвер, который был установлен.
 ;
 ; 3) Приложение должно быть заранее собрано командой:
 ;      dotnet publish ..\src\NeuroMicrophone.csproj -c Release -r win-x64 --self-contained false
@@ -42,6 +42,7 @@
 #define MyAppPublisher "NeuroMicrophone"
 #define MyAppExeName "NeuroMicrophone.exe"
 #define DriverInfName "NeuroMicCable.inf"
+#define VirtualDeviceName "NeuroMicrophone Cable"
 
 [Setup]
 AppId={{B6C1F9C4-6E2C-4B7E-9C7B-3C6E6B4B7B10}}
@@ -189,16 +190,48 @@ begin
   end;
 end;
 
-// Устанавливает драйвер через pnputil, перенаправляя его вывод во временный
-// файл (сам pnputil не имеет режима вывода в переменную), затем разбирает
-// этот файл в поисках строки "Published Name" и сохраняет найденное имя
-// в реестр — деинсталлятор прочитает его оттуда для корректного удаления.
-procedure InstallDriverAndCapturePublishedName();
+// Раньше это делалось разбором текстового вывода pnputil по английской
+// подписи "Published Name" — на локализованной (например, русской) Windows
+// pnputil выводит эту подпись на другом языке, и разбор молча не находил
+// совпадений, из-за чего деинсталлятор не смог бы потом найти установленный
+// драйвер для удаления. WMI (через Get-CimInstance) возвращает значения
+// полей программно, независимо от языка интерфейса ОС — тот же приём с
+// перенаправлением вывода во временный файл, что уже используется выше для
+// загрузки .NET Desktop Runtime (InstallDotNetDesktopRuntime).
+function FindPublishedDriverInfNameViaWmi(): String;
 var
   ResultCode: Integer;
   OutputFile: String;
   Lines: TArrayOfString;
-  I: Integer;
+  Command: String;
+begin
+  Result := '';
+  OutputFile := ExpandConstant('{tmp}\nm_wmi_infname.txt');
+
+  Command := '/c powershell -NoProfile -ExecutionPolicy Bypass -Command ' +
+    '"(Get-CimInstance Win32_PnPSignedDriver | Where-Object { $_.DeviceName -like ''*{#VirtualDeviceName}*'' } ' +
+    '| Select-Object -First 1 -ExpandProperty InfName)" > "' + OutputFile + '" 2>&1';
+
+  Exec(ExpandConstant('{cmd}'), Command, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+
+  if LoadStringsFromFile(OutputFile, Lines) and (GetArrayLength(Lines) > 0) then
+  begin
+    Result := Trim(Lines[0]);
+  end;
+
+  if FileExists(OutputFile) then
+  begin
+    DeleteFile(OutputFile);
+  end;
+end;
+
+// Устанавливает драйвер через pnputil, затем определяет "опубликованное"
+// имя INF через WMI и сохраняет его в реестр — деинсталлятор прочитает
+// его оттуда для корректного удаления.
+procedure InstallDriverAndCapturePublishedName();
+var
+  ResultCode: Integer;
+  OutputFile: String;
   PublishedName: String;
   InfFullPath: String;
 begin
@@ -209,23 +242,12 @@ begin
   end;
 
   OutputFile := ExpandConstant('{tmp}\nm_pnputil_output.txt');
-  PublishedName := '';
 
   Exec(ExpandConstant('{cmd}'), ExpandConstant(
     '/c pnputil.exe /add-driver "' + InfFullPath + '" /install > "' + OutputFile + '" 2>&1'),
     '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 
-  if LoadStringsFromFile(OutputFile, Lines) then
-  begin
-    for I := 0 to GetArrayLength(Lines) - 1 do
-    begin
-      if Pos('Published Name', Lines[I]) > 0 then
-      begin
-        PublishedName := Trim(Copy(Lines[I], Pos(':', Lines[I]) + 1, MaxInt));
-        Break;
-      end;
-    end;
-  end;
+  PublishedName := FindPublishedDriverInfNameViaWmi();
 
   if PublishedName <> '' then
   begin
