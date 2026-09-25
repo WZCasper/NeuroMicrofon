@@ -34,6 +34,62 @@ jobs:
         shell: bash
         run: echo "version=1.0.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
 
+      - name: Setup MSYS2 (MinGW-w64 toolchain, for building RNNoise)
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            git
+            make
+            wget
+            autoconf
+            automake
+            libtool
+            mingw-w64-x86_64-toolchain
+
+      # Раньше rnnoise.dll нужно было собирать вручную (см. README.md) и
+      # класть в src/native/ — если этого не сделать, автосборка через этот
+      # workflow всё равно проходила успешно, но БЕЗ реального шумоподавления
+      # (RnnoiseDenoiser корректно деградирует до "сигнал как есть", ничего
+      # не падает — но и не подавляет шум). Этот шаг собирает rnnoise.dll
+      # прямо здесь, кросс-компиляцией под Windows x64 через MinGW-w64, из
+      # официального репозитория проекта — так каждая автосборка честно
+      # включает шумоподавление, без ручных действий.
+      - name: Build RNNoise (rnnoise.dll)
+        shell: msys2 {0}
+        run: |
+          set -e
+          git clone --depth 1 https://github.com/xiph/rnnoise.git /tmp/rnnoise-src
+          cd /tmp/rnnoise-src
+
+          # autogen.sh сам вызывает download_model.sh (обученные веса не
+          # хранятся в git-репозитории rnnoise) и затем прогоняет autoreconf.
+          ./autogen.sh
+
+          if [ ! -f src/rnnoise_data.c ]; then
+            echo "::error::download_model.sh (внутри autogen.sh) не создал src/rnnoise_data.c — сборка RNNoise невозможна."
+            exit 1
+          fi
+
+          ./configure --host=x86_64-w64-mingw32 --disable-examples
+          make -j"$(nproc)"
+
+          # Точное имя итоговой DLL зависит от libtool version-info текущей
+          # версии rnnoise — вместо того чтобы жёстко зашивать имя (сегодня
+          # это librnnoise-0.dll), находим то, что реально собралось, в
+          # .libs (стандартная папка выходных файлов libtool).
+          DLL_PATH=$(find .libs -maxdepth 1 -iname "*.dll" | head -n 1)
+          if [ -z "$DLL_PATH" ]; then
+            echo "::error::libtool не создал ни одной .dll в .libs — сборка RNNoise не удалась."
+            exit 1
+          fi
+
+          WORKSPACE_UNIX=$(cygpath -u "$GITHUB_WORKSPACE")
+          mkdir -p "$WORKSPACE_UNIX/src/native"
+          cp "$DLL_PATH" "$WORKSPACE_UNIX/src/native/rnnoise.dll"
+          echo "RNNoise собран: $DLL_PATH -> src/native/rnnoise.dll"
+
       - name: Setup .NET 8 SDK
         uses: actions/setup-dotnet@v4
         with:
@@ -64,10 +120,22 @@ jobs:
         run: choco install innosetup -y --no-progress
 
       - name: Build installer
-        continue-on-error: true
         run: |
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=${{ steps.version.outputs.version }}" "Installer\setup_script.iss" 2>&1 | Tee-Object -FilePath installer-output.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          # Раньше этот шаг был помечен continue-on-error: true — если ISCC.exe
+          # падал по любой причине, workflow всё равно показывал зелёную
+          # галочку и публиковал релиз, только без .exe-установщика (только
+          # архив с файлами приложения). Смысл всего пайплайна — "всегда
+          # получать готовый установщик", поэтому теперь при реальном сбое
+          # (в том числе если ISCC.exe вернул 0, но по какой-то причине не
+          # создал файл) весь workflow явно и видимо падает, вместо того
+          # чтобы молча выпустить неполный релиз.
+          if (-not (Test-Path "Installer\Output\NeuroMicrophone_Setup.exe")) {
+            Write-Error "ISCC.exe завершился успешно, но NeuroMicrophone_Setup.exe не найден."
+            exit 1
+          }
 
       - name: Upload installer (.exe)
         uses: actions/upload-artifact@v4
