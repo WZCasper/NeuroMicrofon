@@ -1,0 +1,4 @@
+  Determining projects to restore...
+  Restored D:\a\NeuroMicrofon\NeuroMicrofon\tests\NeuroMicrophone.Tests\NeuroMicrophone.Tests.csproj (in 4.79 sec).
+  1 of 2 projects are up-to-date for restore.
+D:\a\NeuroMicrofon\NeuroMicrofon\src\Services\SettingsService.cs(45,25): error CS0246: The type or namespace name 'ConfiguredAsyncDisposable' could not be found (are you missing a using directive or an assembly reference?) [D:\a\NeuroMicrofon\NeuroMicrofon\src\NeuroMicrophone_4jzgne54_wpftmp.csproj]
