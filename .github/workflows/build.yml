@@ -34,46 +34,6 @@ jobs:
         shell: bash
         run: echo "version=1.0.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
 
-      # ВРЕМЕННАЯ диагностика (будет удалена после проверки, не влияет на
-      # результат сборки): проверяет именно синтаксис WMI-запроса, который
-      # использует DriverInstaller.FindPublishedDriverInfNameAsync и
-      # одноимённая функция в setup_script.iss. Этот запрос ни разу не
-      # выполнялся на реальной Windows в CI — сам путь установки драйвера
-      # не запускается без пакета драйвера, которого пока нет. Проверка не
-      # касается пакета драйвера вообще, только того, что Get-CimInstance
-      # Win32_PnPSignedDriver и весь конвейер после него синтаксически
-      # корректны на реальном раннере, а не только "выглядят правильно".
-      - name: DIAGNOSTIC (temporary) — verify WMI query syntax
-        continue-on-error: true
-        shell: pwsh
-        run: |
-          $lines = @()
-
-          try {
-            $all = Get-CimInstance Win32_PnPSignedDriver
-            $lines += "1) Get-CimInstance Win32_PnPSignedDriver: OK, rows=$($all.Count)"
-          } catch {
-            $lines += "1) Get-CimInstance Win32_PnPSignedDriver: THREW: $($_.Exception.Message)"
-            $all = @()
-          }
-
-          try {
-            $noMatch = $all | Where-Object { $_.DeviceName -like '*NeuroMicrophoneDoesNotExistXYZ123*' } | Select-Object -First 1 -ExpandProperty InfName
-            $lines += "2) No-match query (как наш реальный, на заведомо несуществующем имени): OK, result='$noMatch' (ожидаем пусто)"
-          } catch {
-            $lines += "2) No-match query: THREW: $($_.Exception.Message)"
-          }
-
-          try {
-            $realMatch = $all | Where-Object { $_.DeviceName -like '*Microsoft*' } | Select-Object -First 1 -ExpandProperty InfName
-            $lines += "3) Real-match query (DeviceName -like '*Microsoft*', гарантированно есть на любой Windows): OK, result='$realMatch'"
-          } catch {
-            $lines += "3) Real-match query: THREW: $($_.Exception.Message)"
-          }
-
-          $lines | Out-File -FilePath wmi-diagnostic.txt -Encoding utf8
-          $lines | ForEach-Object { Write-Host $_ }
-
       - name: Setup MSYS2 (MinGW-w64 toolchain, for building RNNoise)
         uses: msys2/setup-msys2@v2
         with:
@@ -223,7 +183,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p /tmp/ci-output
-          for f in wmi-diagnostic.txt restore-output.txt test-output.txt publish-output.txt installer-output.txt; do
+          for f in restore-output.txt test-output.txt publish-output.txt installer-output.txt; do
             if [ -f "$f" ]; then cp "$f" /tmp/ci-output/; fi
           done
           echo "job_status=${{ job.status }}" > /tmp/ci-output/summary.txt
