@@ -202,6 +202,22 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private string _calibrationInstruction = "Нажмите «Автонастройка», чтобы откалибровать микрофон.";
     public string CalibrationInstruction { get => _calibrationInstruction; private set => SetProperty(ref _calibrationInstruction, value); }
 
+    // Пик щелчков клавиатуры/мыши (дБ), измеренный на 4-м этапе автонастройки.
+    // null — автонастройка в этой сессии ещё не дошла до 4-го этапа: строка в
+    // интерфейсе скрыта, чтобы не показывать вводящее в заблуждение "0 дБ".
+    private float? _keyboardNoisePeakDb;
+    public float? KeyboardNoisePeakDb
+    {
+        get => _keyboardNoisePeakDb;
+        private set
+        {
+            if (!SetProperty(ref _keyboardNoisePeakDb, value)) return;
+            OnPropertyChanged(nameof(HasKeyboardNoisePeak));
+        }
+    }
+
+    public bool HasKeyboardNoisePeak => _keyboardNoisePeakDb.HasValue;
+
     private string? _statusMessage;
     public string? StatusMessage { get => _statusMessage; private set => SetProperty(ref _statusMessage, value); }
 
@@ -751,6 +767,11 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
                             // гейта выше того, что уже применил этап 1 — обновляем
                             // ползунок финальным значением.
                             GateThresholdDb = partial.GateThresholdDb;
+
+                            // Измеренный на этом этапе пик щелчков показываем рядом
+                            // с прогрессом калибровки — пользователь видит, от какого
+                            // уровня отталкивался новый порог гейта.
+                            KeyboardNoisePeakDb = partial.KeyboardNoisePeakDb;
                             break;
                     }
                 }
