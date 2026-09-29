@@ -154,7 +154,12 @@ public sealed class DriverInstaller
                 using var searcher = new ManagementObjectSearcher(
                     $"SELECT InfName FROM Win32_PnPSignedDriver WHERE DeviceName LIKE '%{VirtualDeviceName}%'");
 
-                foreach (ManagementObject device in searcher.Get())
+                // Саму коллекцию результатов тоже нужно освобождать явно: она
+                // держит ресурсы WMI (перечислитель результатов), и без Dispose
+                // они живут до сборки мусора. Отдельные элементы освобождаются
+                // ниже в using (device).
+                using ManagementObjectCollection results = searcher.Get();
+                foreach (ManagementObject device in results)
                 {
                     using (device)
                     {
