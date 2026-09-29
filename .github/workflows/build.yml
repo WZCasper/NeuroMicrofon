@@ -25,6 +25,15 @@ jobs:
   build:
     runs-on: windows-latest
 
+    env:
+      # Коммит xiph/rnnoise, из которого собирается rnnoise.dll. Сборка
+      # закреплена на конкретном, уже проверенном коммите, а не на "последнем
+      # коммите ветки по умолчанию": если апстрим когда-нибудь что-то сломает,
+      # наши сборки не начнут падать без единого изменения в этом репозитории.
+      # SHA указан только здесь — от него зависят и ключ кэша, и git checkout
+      # в шаге сборки, поэтому они не могут разойтись друг с другом.
+      RNNOISE_COMMIT: 70f1d256acd4b34a572f999a05c87bf00b67730d
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -34,7 +43,23 @@ jobs:
         shell: bash
         run: echo "version=1.0.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
 
+      # Сборка RNNoise (MSYS2 + autotools + компиляция) занимает несколько
+      # минут, а её результат зависит только от закреплённого коммита. Поэтому
+      # готовая rnnoise.dll кэшируется, и при попадании в кэш шаги "Setup
+      # MSYS2" и "Build RNNoise" ниже полностью пропускаются. Суффикс "-v1" в
+      # ключе нужно поднимать, когда меняется сама процедура сборки (флаги
+      # configure, набор пакетов MSYS2 и т.п.) — иначе восстановится DLL,
+      # собранная по старой процедуре. Кэш записывается в конце успешного
+      # запуска workflow.
+      - name: Restore RNNoise cache (rnnoise.dll)
+        id: rnnoise-cache
+        uses: actions/cache@v4
+        with:
+          path: src/native/rnnoise.dll
+          key: rnnoise-dll-${{ env.RNNOISE_COMMIT }}-v1
+
       - name: Setup MSYS2 (MinGW-w64 toolchain, for building RNNoise)
+        if: steps.rnnoise-cache.outputs.cache-hit != 'true'
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
@@ -57,11 +82,20 @@ jobs:
       # официального репозитория проекта — так каждая автосборка честно
       # включает шумоподавление, без ручных действий.
       - name: Build RNNoise (rnnoise.dll)
+        if: steps.rnnoise-cache.outputs.cache-hit != 'true'
         shell: msys2 {0}
         run: |
           set -e
-          git clone --depth 1 https://github.com/xiph/rnnoise.git /tmp/rnnoise-src
+
+          # Полный клон, без --depth 1: закреплённый коммит не обязан быть
+          # последним в ветке, а мелкий клон содержит только её вершину —
+          # git checkout нужного коммита упал бы, как только апстрим получит
+          # новый коммит. Репозиторий небольшой (около 1 МБ), а сам шаг
+          # выполняется только при промахе кэша.
+          git clone https://github.com/xiph/rnnoise.git /tmp/rnnoise-src
           cd /tmp/rnnoise-src
+          git -c advice.detachedHead=false checkout "$RNNOISE_COMMIT"
+          echo "RNNoise закреплён на коммите: $(git rev-parse HEAD)"
 
           # autogen.sh сам вызывает download_model.sh (обученные веса не
           # хранятся в git-репозитории rnnoise) и затем прогоняет autoreconf.
@@ -89,6 +123,20 @@ jobs:
           mkdir -p "$WORKSPACE_UNIX/src/native"
           cp "$DLL_PATH" "$WORKSPACE_UNIX/src/native/rnnoise.dll"
           echo "RNNoise собран: $DLL_PATH -> src/native/rnnoise.dll"
+
+      # Страховка от тихой деградации: при любом пути (сборка или кэш) DLL
+      # обязана лежать на месте. Если её нет, приложение молча соберётся без
+      # шумоподавления (RnnoiseDenoiser в таком случае просто пропускает
+      # сигнал как есть) — именно этого автосборка не должна допускать.
+      - name: Verify rnnoise.dll is in place
+        shell: pwsh
+        run: |
+          $dll = Get-Item -LiteralPath 'src/native/rnnoise.dll' -ErrorAction SilentlyContinue
+          if (-not $dll -or $dll.Length -eq 0) {
+            Write-Error "src/native/rnnoise.dll отсутствует или пуст — приложение собралось бы без шумоподавления."
+            exit 1
+          }
+          Write-Host "rnnoise.dll на месте: $($dll.Length) байт"
 
       - name: Setup .NET 8 SDK
         uses: actions/setup-dotnet@v4
