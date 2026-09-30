@@ -15,7 +15,12 @@ name: Build NeuroMicrophone
 
 on:
   push:
-    branches: [ main, master ]
+    # staging — ветка для предварительной проверки: коммит пушится сюда и
+    # ждёт зелёного CI, прежде чем тем же SHA попасть в main (так main можно
+    # защитить правилом "только с прошедшей проверкой", не меняя привычную
+    # последовательность мелких коммитов). Релиз и версия ниже по файлу
+    # по-прежнему привязаны только к main.
+    branches: [ main, master, staging ]
   workflow_dispatch: {}
 
 permissions:
@@ -192,8 +197,11 @@ jobs:
           path: Installer\Output\NeuroMicrophone_Setup.exe
           if-no-files-found: warn
 
+      # Релиз создаётся только для main: сборка на staging нужна лишь для
+      # предварительной проверки перед переносом коммита в main, и не должна
+      # плодить теги/релизы для ещё не принятых изменений.
       - name: Package release assets
-        if: success()
+        if: success() && github.ref == 'refs/heads/main'
         shell: pwsh
         run: |
           Compress-Archive -Path 'src\bin\Release\net8.0-windows\win-x64\publish\*' -DestinationPath 'NeuroMicrophone-app.zip'
@@ -204,7 +212,7 @@ jobs:
       # реальный собранный файл. Каждый успешный билд — отдельный тег vX.Y.Z,
       # без удаления/перезаписи предыдущих релизов.
       - name: Publish GitHub Release with build results
-        if: success()
+        if: success() && github.ref == 'refs/heads/main'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
