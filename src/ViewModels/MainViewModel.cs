@@ -1,3 +1,10 @@
+// Ядро MainViewModel: жизненный цикл движка обработки звука (запуск/
+// перезапуск/остановка), выбор устройств ввода-вывода-прослушивания, живые
+// метры уровня сигнала, конструктор (создаёт все команды и сервисы) и
+// Dispose. Калибровка, DSP-параметры, настройки, драйвер, горячая клавиша и
+// проверка обновлений вынесены в отдельные partial-файлы MainViewModel.*.cs —
+// см. их для соответствующей функциональности.
+
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -15,7 +22,7 @@ using NeuroMicrophone.Services;
 
 namespace NeuroMicrophone.ViewModels;
 
-public sealed class MainViewModel : ViewModelBase, IDisposable
+public sealed partial class MainViewModel : ViewModelBase, IDisposable
 {
     private const string DriverInfFileName = "NeuroMicCable.inf";
 
@@ -25,7 +32,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private readonly UpdateCheckService _updateCheckService = new();
     private readonly DispatcherTimer _meterTimer;
     private readonly DispatcherTimer _saveDebounceTimer;
-    private CancellationTokenSource? _calibrationCts;
+
     private string? _publishedDriverInfName;
     private bool _isLoadingSettings;
 
@@ -193,31 +200,6 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         }
     }
 
-    private bool _isCalibrating;
-    public bool IsCalibrating { get => _isCalibrating; private set => SetProperty(ref _isCalibrating, value); }
-
-    private double _calibrationProgress;
-    public double CalibrationProgress { get => _calibrationProgress; private set => SetProperty(ref _calibrationProgress, value); }
-
-    private string _calibrationInstruction = "Нажмите «Автонастройка», чтобы откалибровать микрофон.";
-    public string CalibrationInstruction { get => _calibrationInstruction; private set => SetProperty(ref _calibrationInstruction, value); }
-
-    // Пик щелчков клавиатуры/мыши (дБ), измеренный на 4-м этапе автонастройки.
-    // null — автонастройка в этой сессии ещё не дошла до 4-го этапа: строка в
-    // интерфейсе скрыта, чтобы не показывать вводящее в заблуждение "0 дБ".
-    private float? _keyboardNoisePeakDb;
-    public float? KeyboardNoisePeakDb
-    {
-        get => _keyboardNoisePeakDb;
-        private set
-        {
-            if (!SetProperty(ref _keyboardNoisePeakDb, value)) return;
-            OnPropertyChanged(nameof(HasKeyboardNoisePeak));
-        }
-    }
-
-    public bool HasKeyboardNoisePeak => _keyboardNoisePeakDb.HasValue;
-
     private string? _statusMessage;
     public string? StatusMessage { get => _statusMessage; private set => SetProperty(ref _statusMessage, value); }
 
@@ -250,16 +232,6 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private string _activePresetLabel = "Пользовательские настройки";
     public string ActivePresetLabel { get => _activePresetLabel; private set => SetProperty(ref _activePresetLabel, value); }
 
-    private bool _hasCalibrationResult;
-    public bool HasCalibrationResult { get => _hasCalibrationResult; private set => SetProperty(ref _hasCalibrationResult, value); }
-
-    private float _calibratedGateThresholdDb;
-    private float _calibratedWetMix;
-    private float _calibratedCompThresholdDb;
-    private float _calibratedCompRatio;
-
-    public ICommand RecallCalibrationCommand { get; }
-
     private DspPreset? _selectedPreset;
     public DspPreset? SelectedPreset
     {
@@ -284,31 +256,6 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
             ActivePresetLabel = value.Name;
         }
-    }
-
-    private void RecallCalibration()
-    {
-        if (!HasCalibrationResult) return;
-
-        // Сбрасываем визуальный выбор карточки пресета — активна "своя" калибровка, а не один из фиксированных пресетов.
-        _selectedPreset = null;
-        OnPropertyChanged(nameof(SelectedPreset));
-
-        _isApplyingPresetOrCalibration = true;
-        try
-        {
-            GateThresholdDb = _calibratedGateThresholdDb;
-            DenoiserWetMix = _calibratedWetMix;
-            AgcTargetLevelDb = -18f;
-            CompressorThresholdDb = _calibratedCompThresholdDb;
-            CompressorRatio = _calibratedCompRatio;
-        }
-        finally
-        {
-            _isApplyingPresetOrCalibration = false;
-        }
-
-        ActivePresetLabel = "Автонастройка (моя калибровка)";
     }
 
     private float _gateThresholdDb = -50f;
@@ -470,7 +417,6 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public ICommand OpenUpdateCommand { get; }
     public ICommand OpenVbCableLinkCommand { get; }
 
-    public ICommand AutoTuneCommand { get; }
     public ICommand ToggleMuteCommand { get; }
     public ICommand InstallDriverCommand { get; }
     public ICommand UninstallDriverCommand { get; }
@@ -707,107 +653,6 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     {
         _saveDebounceTimer.Stop();
         await SaveSettingsAsync().ConfigureAwait(false);
-    }
-
-    private async Task RunCalibrationAsync()
-    {
-        if (_engine.Pipeline == null)
-        {
-            StatusMessage = "Сначала выберите устройства ввода и вывода.";
-            return;
-        }
-
-        // На время калибровки временно отключаем прослушивание себя: если у
-        // пользователя колонки (а не наушники), обработанный звук из колонок
-        // попал бы обратно в микрофон и исказил измерения фонового шума.
-        bool wasMonitoring = IsMonitoring;
-        if (wasMonitoring) IsMonitoring = false;
-
-        IsCalibrating = true;
-        _calibrationCts = new CancellationTokenSource();
-        var calibrationEngine = new CalibrationEngine(_engine);
-
-        var progress = new Progress<CalibrationProgressEventArgs>(p =>
-        {
-            CalibrationInstruction = $"{p.StepNumber}/4: {p.Instruction}";
-            CalibrationProgress = p.OverallFraction * 100.0;
-        });
-
-        try
-        {
-            // Пресет "снимается" сразу — теперь активна калибровка, а не фиксированный пресет.
-            _selectedPreset = null;
-            OnPropertyChanged(nameof(SelectedPreset));
-            ActivePresetLabel = "Автонастройка выполняется...";
-
-            CalibrationResult result = await calibrationEngine.RunAsync(progress, _calibrationCts.Token, (stage, partial) =>
-            {
-                // Реальные, промежуточные значения применяются к ползункам сразу
-                // после каждого этапа — пользователь видит, что программа
-                // ДЕЙСТВИТЕЛЬНО анализирует его микрофон здесь и сейчас, а не
-                // просто крутит прогресс-бар 20 секунд и подставляет числа в конце.
-                _isApplyingPresetOrCalibration = true;
-                try
-                {
-                    switch (stage)
-                    {
-                        case 1:
-                            GateThresholdDb = partial.GateThresholdDb;
-                            DenoiserWetMix = partial.DenoiserWetMix;
-                            break;
-                        case 2:
-                            AgcTargetLevelDb = -18f;
-                            break;
-                        case 3:
-                            CompressorThresholdDb = partial.CompressorThresholdDb;
-                            CompressorRatio = partial.CompressorRatio;
-                            break;
-                        case 4:
-                            // Этап 4 (стук по клавиатуре/мышке) мог поднять порог
-                            // гейта выше того, что уже применил этап 1 — обновляем
-                            // ползунок финальным значением.
-                            GateThresholdDb = partial.GateThresholdDb;
-
-                            // Измеренный на этом этапе пик щелчков показываем рядом
-                            // с прогрессом калибровки — пользователь видит, от какого
-                            // уровня отталкивался новый порог гейта.
-                            KeyboardNoisePeakDb = partial.KeyboardNoisePeakDb;
-                            break;
-                    }
-                }
-                finally
-                {
-                    _isApplyingPresetOrCalibration = false;
-                }
-            });
-
-            _calibratedGateThresholdDb = result.GateThresholdDb;
-            _calibratedWetMix = result.DenoiserWetMix;
-            _calibratedCompThresholdDb = result.CompressorThresholdDb;
-            _calibratedCompRatio = result.CompressorRatio;
-            HasCalibrationResult = true;
-            ActivePresetLabel = "Автонастройка (моя калибровка)";
-            ScheduleSettingsSave();
-
-            CalibrationInstruction = "Калибровка завершена.";
-            CalibrationProgress = 100;
-        }
-        catch (OperationCanceledException)
-        {
-            CalibrationInstruction = "Калибровка отменена.";
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = $"Ошибка калибровки: {ex.Message}";
-        }
-        finally
-        {
-            IsCalibrating = false;
-            _calibrationCts?.Dispose();
-            _calibrationCts = null;
-
-            if (wasMonitoring) IsMonitoring = true;
-        }
     }
 
     private async Task InstallDriverAsync()
