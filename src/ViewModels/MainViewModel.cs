@@ -24,16 +24,11 @@ namespace NeuroMicrophone.ViewModels;
 
 public sealed partial class MainViewModel : ViewModelBase, IDisposable
 {
-    private const string DriverInfFileName = "NeuroMicCable.inf";
-
     private readonly AudioEngine _engine = new();
-    private readonly DriverInstaller _driverInstaller = new();
 
     private readonly UpdateCheckService _updateCheckService = new();
     private readonly DispatcherTimer _meterTimer;
     private readonly DispatcherTimer _saveDebounceTimer;
-
-    private string? _publishedDriverInfName;
 
     public ObservableCollection<AudioDeviceInfo> InputDevices { get; } = new();
     public ObservableCollection<AudioDeviceInfo> OutputDevices { get; } = new();
@@ -108,9 +103,6 @@ public sealed partial class MainViewModel : ViewModelBase, IDisposable
     private string? _statusMessage;
     public string? StatusMessage { get => _statusMessage; private set => SetProperty(ref _statusMessage, value); }
 
-    private bool _isDriverInstalled;
-    public bool IsDriverInstalled { get => _isDriverInstalled; private set => SetProperty(ref _isDriverInstalled, value); }
-
     // --- Горячая клавиша заглушки микрофона: свободная запись, максимум
     //     один модификатор (Ctrl/Alt/Shift) + одна клавиша — то есть не
     //     более двух клавиш в сочетании, как и просил пользователь.
@@ -179,10 +171,6 @@ public sealed partial class MainViewModel : ViewModelBase, IDisposable
     public string? UpdateAvailableUrl { get => _updateAvailableUrl; private set => SetProperty(ref _updateAvailableUrl, value); }
 
     public ICommand OpenUpdateCommand { get; }
-    public ICommand OpenVbCableLinkCommand { get; }
-
-    public ICommand InstallDriverCommand { get; }
-    public ICommand UninstallDriverCommand { get; }
 
     public MainViewModel()
     {
@@ -313,40 +301,6 @@ public sealed partial class MainViewModel : ViewModelBase, IDisposable
 
         UpdateAvailableMessage = $"Доступна новая версия {result.NewVersion} — обновите приложение.";
         UpdateAvailableUrl = result.ReleaseUrl;
-    }
-
-    private async Task InstallDriverAsync()
-    {
-        string infPath = Path.Combine(AppContext.BaseDirectory, "Driver", "Package", DriverInfFileName);
-        DriverInstallResult result = await _driverInstaller.InstallDriverAsync(infPath);
-
-        if (result.IsSuccess)
-        {
-            _publishedDriverInfName = result.PublishedInfName;
-            IsDriverInstalled = _driverInstaller.IsDriverInstalled();
-            StatusMessage = null;
-            ScheduleSettingsSave();
-        }
-        else
-        {
-            StatusMessage = result.Message;
-        }
-    }
-
-    private async Task UninstallDriverAsync()
-    {
-        DriverInstallResult result = await _driverInstaller.UninstallDriverAsync(_publishedDriverInfName);
-
-        if (result.IsSuccess)
-        {
-            _publishedDriverInfName = null;
-            IsDriverInstalled = _driverInstaller.IsDriverInstalled();
-            ScheduleSettingsSave();
-        }
-        else
-        {
-            StatusMessage = result.Message;
-        }
     }
 
     public void Dispose()
