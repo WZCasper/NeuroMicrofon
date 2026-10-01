@@ -28,13 +28,12 @@ public sealed partial class MainViewModel : ViewModelBase, IDisposable
 
     private readonly AudioEngine _engine = new();
     private readonly DriverInstaller _driverInstaller = new();
-    private readonly SettingsService _settingsService = new();
+
     private readonly UpdateCheckService _updateCheckService = new();
     private readonly DispatcherTimer _meterTimer;
     private readonly DispatcherTimer _saveDebounceTimer;
 
     private string? _publishedDriverInfName;
-    private bool _isLoadingSettings;
 
     public ObservableCollection<AudioDeviceInfo> InputDevices { get; } = new();
     public ObservableCollection<AudioDeviceInfo> OutputDevices { get; } = new();
@@ -111,21 +110,6 @@ public sealed partial class MainViewModel : ViewModelBase, IDisposable
 
     private bool _isDriverInstalled;
     public bool IsDriverInstalled { get => _isDriverInstalled; private set => SetProperty(ref _isDriverInstalled, value); }
-
-    private bool _isAutostartEnabled;
-    public bool IsAutostartEnabled
-    {
-        get => _isAutostartEnabled;
-        set
-        {
-            if (!SetProperty(ref _isAutostartEnabled, value)) return;
-            if (_isLoadingSettings) return;
-
-            string exePath = Environment.ProcessPath ?? Path.Combine(AppContext.BaseDirectory, "NeuroMicrophone.exe");
-            AutostartService.SetEnabled(value, exePath);
-            ScheduleSettingsSave();
-        }
-    }
 
     // --- Горячая клавиша заглушки микрофона: свободная запись, максимум
     //     один модификатор (Ctrl/Alt/Shift) + одна клавиша — то есть не
@@ -329,108 +313,6 @@ public sealed partial class MainViewModel : ViewModelBase, IDisposable
 
         UpdateAvailableMessage = $"Доступна новая версия {result.NewVersion} — обновите приложение.";
         UpdateAvailableUrl = result.ReleaseUrl;
-    }
-
-    private async Task LoadSettingsAndApplyAsync()
-    {
-        AppSettings? settings = await _settingsService.LoadAsync();
-        if (settings == null) return;
-
-        _isLoadingSettings = true;
-        try
-        {
-            AudioDeviceInfo? savedInput = InputDevices.FirstOrDefault(d => d.Id == settings.InputDeviceId);
-            if (savedInput != null) SelectedInputDevice = savedInput;
-
-            AudioDeviceInfo? savedOutput = OutputDevices.FirstOrDefault(d => d.Id == settings.OutputDeviceId);
-            if (savedOutput != null) SelectedOutputDevice = savedOutput;
-
-            AudioDeviceInfo? savedMonitor = OutputDevices.FirstOrDefault(d => d.Id == settings.MonitorDeviceId);
-            if (savedMonitor != null) SelectedMonitorDevice = savedMonitor;
-
-            if (settings.HasDspSettings)
-            {
-                GateThresholdDb = settings.GateThresholdDb;
-                DenoiserWetMix = settings.DenoiserWetMix;
-                AgcTargetLevelDb = settings.AgcTargetLevelDb;
-                CompressorThresholdDb = settings.CompressorThresholdDb;
-                CompressorRatio = settings.CompressorRatio;
-                HighPassCutoffHz = settings.HighPassCutoffHz;
-            }
-
-            if (settings.HasCalibrationResult)
-            {
-                _calibratedGateThresholdDb = settings.CalibratedGateThresholdDb;
-                _calibratedWetMix = settings.CalibratedWetMix;
-                _calibratedCompThresholdDb = settings.CalibratedCompThresholdDb;
-                _calibratedCompRatio = settings.CalibratedCompRatio;
-                HasCalibrationResult = true;
-            }
-
-            if (settings.HotkeyModifiers != 0 && settings.HotkeyVirtualKey != 0)
-            {
-                HotkeyModifierFlags = settings.HotkeyModifiers;
-                HotkeyVirtualKey = settings.HotkeyVirtualKey;
-                HotkeyDisplayText = BuildHotkeyDisplayText(settings.HotkeyModifiers, settings.HotkeyVirtualKey);
-            }
-
-            _publishedDriverInfName = settings.PublishedDriverInfName;
-            IsAutostartEnabled = settings.LaunchOnStartup;
-        }
-        finally
-        {
-            _isLoadingSettings = false;
-        }
-    }
-
-    private void ScheduleSettingsSave()
-    {
-        if (_isLoadingSettings) return;
-        _saveDebounceTimer.Stop();
-        _saveDebounceTimer.Start();
-    }
-
-    private async Task SaveSettingsAsync()
-    {
-        var settings = new AppSettings
-        {
-            InputDeviceId = SelectedInputDevice?.Id,
-            OutputDeviceId = SelectedOutputDevice?.Id,
-            MonitorDeviceId = SelectedMonitorDevice?.Id,
-            GateThresholdDb = GateThresholdDb,
-            DenoiserWetMix = DenoiserWetMix,
-            AgcTargetLevelDb = AgcTargetLevelDb,
-            CompressorThresholdDb = CompressorThresholdDb,
-            CompressorRatio = CompressorRatio,
-            HighPassCutoffHz = HighPassCutoffHz,
-            HotkeyModifiers = HotkeyModifierFlags,
-            HotkeyVirtualKey = HotkeyVirtualKey,
-            LaunchOnStartup = IsAutostartEnabled,
-            PublishedDriverInfName = _publishedDriverInfName,
-            HasDspSettings = true,
-            HasCalibrationResult = HasCalibrationResult,
-            CalibratedGateThresholdDb = _calibratedGateThresholdDb,
-            CalibratedWetMix = _calibratedWetMix,
-            CalibratedCompThresholdDb = _calibratedCompThresholdDb,
-            CalibratedCompRatio = _calibratedCompRatio,
-        };
-
-        // ConfigureAwait(false) обязателен здесь: MainWindow_Closing вызывает
-        // FlushSettingsAsync().GetAwaiter().GetResult() синхронно, блокируя
-        // поток UI. Без ConfigureAwait(false) продолжение после await
-        // попыталось бы вернуться в тот же (заблокированный) поток UI через
-        // SynchronizationContext — это классический ASP.NET/WPF deadlock.
-        // Гарантия должна выполняться на каждом шаге всей цепочки await,
-        // а не только "по факту" в её нынешней реализации — поэтому
-        // ConfigureAwait(false) стоит и здесь, и в FlushSettingsAsync ниже.
-        await _settingsService.SaveAsync(settings).ConfigureAwait(false);
-    }
-
-    /// <summary>Принудительно сбрасывает отложенное сохранение — вызывается при закрытии приложения.</summary>
-    public async Task FlushSettingsAsync()
-    {
-        _saveDebounceTimer.Stop();
-        await SaveSettingsAsync().ConfigureAwait(false);
     }
 
     private async Task InstallDriverAsync()
