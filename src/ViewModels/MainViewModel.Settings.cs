@@ -78,9 +78,7 @@ public partial class MainViewModel
 
             if (settings.HotkeyModifiers != 0 && settings.HotkeyVirtualKey != 0)
             {
-                HotkeyModifierFlags = settings.HotkeyModifiers;
-                HotkeyVirtualKey = settings.HotkeyVirtualKey;
-                HotkeyDisplayText = BuildHotkeyDisplayText(settings.HotkeyModifiers, settings.HotkeyVirtualKey);
+                HotkeyAndUpdates.LoadHotkey(settings.HotkeyModifiers, settings.HotkeyVirtualKey);
             }
 
             Driver.LoadPublishedDriverInfName(settings.PublishedDriverInfName);
@@ -112,8 +110,8 @@ public partial class MainViewModel
             CompressorThresholdDb = CompressorThresholdDb,
             CompressorRatio = CompressorRatio,
             HighPassCutoffHz = HighPassCutoffHz,
-            HotkeyModifiers = HotkeyModifierFlags,
-            HotkeyVirtualKey = HotkeyVirtualKey,
+            HotkeyModifiers = HotkeyAndUpdates.HotkeyModifierFlags,
+            HotkeyVirtualKey = HotkeyAndUpdates.HotkeyVirtualKey,
             LaunchOnStartup = IsAutostartEnabled,
             PublishedDriverInfName = Driver.PublishedDriverInfName,
             HasDspSettings = true,

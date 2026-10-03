@@ -58,12 +58,16 @@ public partial class MainWindow : Window
 
     private void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
-        _hotkeyService = new HotkeyService(this, _viewModel.HotkeyModifierFlags, _viewModel.HotkeyVirtualKey);
+        _hotkeyService = new HotkeyService(this, _viewModel.HotkeyAndUpdates.HotkeyModifierFlags, _viewModel.HotkeyAndUpdates.HotkeyVirtualKey);
         _hotkeyService.HotkeyPressed += () => _viewModel.IsMuted = !_viewModel.IsMuted;
 
         // Если настройки загрузятся асинхронно уже после этого события (или
         // пользователь запишет новую комбинацию через UI) — перерегистрируем хук.
-        _viewModel.PropertyChanged += ViewModel_PropertyChanged;
+        // Подписываемся на PropertyChanged дочернего HotkeyAndUpdatesViewModel,
+        // а не самого MainViewModel — после Этапа B разбиения это разные
+        // объекты, каждый со своим событием, а интересующие нас свойства
+        // (HotkeyModifierFlags/HotkeyVirtualKey) теперь живут на дочернем.
+        _viewModel.HotkeyAndUpdates.PropertyChanged += ViewModel_PropertyChanged;
 
         _trayIconService = new TrayIconService(this);
         _trayIconService.ExitRequested += () =>
@@ -82,7 +86,7 @@ public partial class MainWindow : Window
     /// </summary>
     private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (!_viewModel.IsCapturingHotkey) return;
+        if (!_viewModel.HotkeyAndUpdates.IsCapturingHotkey) return;
 
         Key key = e.Key == Key.System ? e.SystemKey : e.Key;
 
@@ -100,7 +104,7 @@ public partial class MainWindow : Window
 
         if (key == Key.Escape)
         {
-            _viewModel.CancelHotkeyCapture();
+            _viewModel.HotkeyAndUpdates.CancelHotkeyCapture();
             e.Handled = true;
             return;
         }
@@ -148,14 +152,14 @@ public partial class MainWindow : Window
         bool registered = _hotkeyService?.ChangeHotkey(winModifiers, virtualKey) ?? false;
         if (registered)
         {
-            _viewModel.ApplyCapturedHotkey(winModifiers, virtualKey, displayText);
+            _viewModel.HotkeyAndUpdates.ApplyCapturedHotkey(winModifiers, virtualKey, displayText);
         }
         else
         {
             // Комбинация уже занята другой программой в системе — восстанавливаем
             // предыдущую рабочую комбинацию и сообщаем пользователю.
-            _hotkeyService?.ChangeHotkey(_viewModel.HotkeyModifierFlags, _viewModel.HotkeyVirtualKey);
-            _viewModel.ReportHotkeyRegistrationFailed();
+            _hotkeyService?.ChangeHotkey(_viewModel.HotkeyAndUpdates.HotkeyModifierFlags, _viewModel.HotkeyAndUpdates.HotkeyVirtualKey);
+            _viewModel.HotkeyAndUpdates.ReportHotkeyRegistrationFailed();
         }
 
         e.Handled = true;
@@ -163,9 +167,9 @@ public partial class MainWindow : Window
 
     private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(MainViewModel.HotkeyVirtualKey) or nameof(MainViewModel.HotkeyModifierFlags))
+        if (e.PropertyName is nameof(HotkeyAndUpdatesViewModel.HotkeyVirtualKey) or nameof(HotkeyAndUpdatesViewModel.HotkeyModifierFlags))
         {
-            _hotkeyService?.ChangeHotkey(_viewModel.HotkeyModifierFlags, _viewModel.HotkeyVirtualKey);
+            _hotkeyService?.ChangeHotkey(_viewModel.HotkeyAndUpdates.HotkeyModifierFlags, _viewModel.HotkeyAndUpdates.HotkeyVirtualKey);
         }
     }
 
@@ -188,7 +192,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        _viewModel.PropertyChanged -= ViewModel_PropertyChanged;
+        _viewModel.HotkeyAndUpdates.PropertyChanged -= ViewModel_PropertyChanged;
         _hotkeyService?.Dispose();
         _trayIconService?.Dispose();
 

@@ -112,9 +112,13 @@ public sealed partial class MainViewModel : ViewModelBase, IDisposable
     /// </summary>
     public DriverViewModel Driver { get; }
 
+    /// <summary>Этап B разбиения: горячая клавиша и проверка обновлений — тем же принципом, что и Driver выше.</summary>
+    public HotkeyAndUpdatesViewModel HotkeyAndUpdates { get; }
+
     public MainViewModel()
     {
         Driver = new DriverViewModel(_driverInstaller, message => StatusMessage = message, ScheduleSettingsSave);
+        HotkeyAndUpdates = new HotkeyAndUpdatesViewModel(message => StatusMessage = message, ScheduleSettingsSave);
 
         AutoTuneCommand = new RelayCommand(async () => await RunCalibrationAsync(), () => !IsCalibrating && _engine.IsRunning);
         ToggleMuteCommand = new RelayCommand(() => IsMuted = !IsMuted);
@@ -122,13 +126,7 @@ public sealed partial class MainViewModel : ViewModelBase, IDisposable
         {
             if (preset != null) SelectedPreset = preset;
         });
-        StartHotkeyCaptureCommand = new RelayCommand(() => IsCapturingHotkey = true);
         RecallCalibrationCommand = new RelayCommand(RecallCalibration, () => HasCalibrationResult);
-        OpenUpdateCommand = new RelayCommand(() =>
-        {
-            if (string.IsNullOrEmpty(UpdateAvailableUrl)) return;
-            Process.Start(new ProcessStartInfo(UpdateAvailableUrl) { UseShellExecute = true });
-        });
 
         _engine.ErrorOccurred += (_, message) => StatusMessage = message;
 
@@ -175,7 +173,7 @@ public sealed partial class MainViewModel : ViewModelBase, IDisposable
         _meterTimer.Start();
 
         _ = LoadSettingsAndApplyAsync();
-        _ = CheckForUpdatesAsync();
+        // Проверку обновлений запускает собственный конструктор HotkeyAndUpdates выше.
     }
 
     private void RefreshDeviceLists()
