@@ -59,12 +59,12 @@ public partial class MainViewModel
 
             if (settings.HasDspSettings)
             {
-                GateThresholdDb = settings.GateThresholdDb;
-                DenoiserWetMix = settings.DenoiserWetMix;
-                AgcTargetLevelDb = settings.AgcTargetLevelDb;
-                CompressorThresholdDb = settings.CompressorThresholdDb;
-                CompressorRatio = settings.CompressorRatio;
-                HighPassCutoffHz = settings.HighPassCutoffHz;
+                Dsp.GateThresholdDb = settings.GateThresholdDb;
+                Dsp.DenoiserWetMix = settings.DenoiserWetMix;
+                Dsp.AgcTargetLevelDb = settings.AgcTargetLevelDb;
+                Dsp.CompressorThresholdDb = settings.CompressorThresholdDb;
+                Dsp.CompressorRatio = settings.CompressorRatio;
+                Dsp.HighPassCutoffHz = settings.HighPassCutoffHz;
             }
 
             if (settings.HasCalibrationResult)
@@ -104,12 +104,12 @@ public partial class MainViewModel
             InputDeviceId = SelectedInputDevice?.Id,
             OutputDeviceId = SelectedOutputDevice?.Id,
             MonitorDeviceId = SelectedMonitorDevice?.Id,
-            GateThresholdDb = GateThresholdDb,
-            DenoiserWetMix = DenoiserWetMix,
-            AgcTargetLevelDb = AgcTargetLevelDb,
-            CompressorThresholdDb = CompressorThresholdDb,
-            CompressorRatio = CompressorRatio,
-            HighPassCutoffHz = HighPassCutoffHz,
+            GateThresholdDb = Dsp.GateThresholdDb,
+            DenoiserWetMix = Dsp.DenoiserWetMix,
+            AgcTargetLevelDb = Dsp.AgcTargetLevelDb,
+            CompressorThresholdDb = Dsp.CompressorThresholdDb,
+            CompressorRatio = Dsp.CompressorRatio,
+            HighPassCutoffHz = Dsp.HighPassCutoffHz,
             HotkeyModifiers = HotkeyAndUpdates.HotkeyModifierFlags,
             HotkeyVirtualKey = HotkeyAndUpdates.HotkeyVirtualKey,
             LaunchOnStartup = IsAutostartEnabled,

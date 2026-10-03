@@ -59,7 +59,7 @@ public partial class MainWindow : Window
     private void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
         _hotkeyService = new HotkeyService(this, _viewModel.HotkeyAndUpdates.HotkeyModifierFlags, _viewModel.HotkeyAndUpdates.HotkeyVirtualKey);
-        _hotkeyService.HotkeyPressed += () => _viewModel.IsMuted = !_viewModel.IsMuted;
+        _hotkeyService.HotkeyPressed += () => _viewModel.Dsp.IsMuted = !_viewModel.Dsp.IsMuted;
 
         // Если настройки загрузятся асинхронно уже после этого события (или
         // пользователь запишет новую комбинацию через UI) — перерегистрируем хук.

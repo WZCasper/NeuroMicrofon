@@ -64,24 +64,10 @@ public partial class MainViewModel
         if (!HasCalibrationResult) return;
 
         // Сбрасываем визуальный выбор карточки пресета — активна "своя" калибровка, а не один из фиксированных пресетов.
-        _selectedPreset = null;
-        OnPropertyChanged(nameof(SelectedPreset));
+        Dsp.SelectedPreset = null;
 
-        _isApplyingPresetOrCalibration = true;
-        try
-        {
-            GateThresholdDb = _calibratedGateThresholdDb;
-            DenoiserWetMix = _calibratedWetMix;
-            AgcTargetLevelDb = -18f;
-            CompressorThresholdDb = _calibratedCompThresholdDb;
-            CompressorRatio = _calibratedCompRatio;
-        }
-        finally
-        {
-            _isApplyingPresetOrCalibration = false;
-        }
-
-        ActivePresetLabel = "Автонастройка (моя калибровка)";
+        Dsp.ApplyExternalValues(_calibratedGateThresholdDb, _calibratedWetMix, -18f,
+            _calibratedCompThresholdDb, _calibratedCompRatio, "Автонастройка (моя калибровка)");
     }
 
     public ICommand AutoTuneCommand { get; }
@@ -97,8 +83,8 @@ public partial class MainViewModel
         // На время калибровки временно отключаем прослушивание себя: если у
         // пользователя колонки (а не наушники), обработанный звук из колонок
         // попал бы обратно в микрофон и исказил измерения фонового шума.
-        bool wasMonitoring = IsMonitoring;
-        if (wasMonitoring) IsMonitoring = false;
+        bool wasMonitoring = Dsp.IsMonitoring;
+        if (wasMonitoring) Dsp.IsMonitoring = false;
 
         IsCalibrating = true;
         _calibrationCts = new CancellationTokenSource();
@@ -113,9 +99,8 @@ public partial class MainViewModel
         try
         {
             // Пресет "снимается" сразу — теперь активна калибровка, а не фиксированный пресет.
-            _selectedPreset = null;
-            OnPropertyChanged(nameof(SelectedPreset));
-            ActivePresetLabel = "Автонастройка выполняется...";
+            Dsp.SelectedPreset = null;
+            Dsp.SetActivePresetLabel("Автонастройка выполняется...");
 
             CalibrationResult result = await calibrationEngine.RunAsync(progress, _calibrationCts.Token, (stage, partial) =>
             {
@@ -123,27 +108,27 @@ public partial class MainViewModel
                 // после каждого этапа — пользователь видит, что программа
                 // ДЕЙСТВИТЕЛЬНО анализирует его микрофон здесь и сейчас, а не
                 // просто крутит прогресс-бар 20 секунд и подставляет числа в конце.
-                _isApplyingPresetOrCalibration = true;
+                Dsp.BeginExternalEdit();
                 try
                 {
                     switch (stage)
                     {
                         case 1:
-                            GateThresholdDb = partial.GateThresholdDb;
-                            DenoiserWetMix = partial.DenoiserWetMix;
+                            Dsp.GateThresholdDb = partial.GateThresholdDb;
+                            Dsp.DenoiserWetMix = partial.DenoiserWetMix;
                             break;
                         case 2:
-                            AgcTargetLevelDb = -18f;
+                            Dsp.AgcTargetLevelDb = -18f;
                             break;
                         case 3:
-                            CompressorThresholdDb = partial.CompressorThresholdDb;
-                            CompressorRatio = partial.CompressorRatio;
+                            Dsp.CompressorThresholdDb = partial.CompressorThresholdDb;
+                            Dsp.CompressorRatio = partial.CompressorRatio;
                             break;
                         case 4:
                             // Этап 4 (стук по клавиатуре/мышке) мог поднять порог
                             // гейта выше того, что уже применил этап 1 — обновляем
                             // ползунок финальным значением.
-                            GateThresholdDb = partial.GateThresholdDb;
+                            Dsp.GateThresholdDb = partial.GateThresholdDb;
 
                             // Измеренный на этом этапе пик щелчков показываем рядом
                             // с прогрессом калибровки — пользователь видит, от какого
@@ -154,7 +139,7 @@ public partial class MainViewModel
                 }
                 finally
                 {
-                    _isApplyingPresetOrCalibration = false;
+                    Dsp.EndExternalEdit();
                 }
             });
 
@@ -163,7 +148,7 @@ public partial class MainViewModel
             _calibratedCompThresholdDb = result.CompressorThresholdDb;
             _calibratedCompRatio = result.CompressorRatio;
             HasCalibrationResult = true;
-            ActivePresetLabel = "Автонастройка (моя калибровка)";
+            Dsp.SetActivePresetLabel("Автонастройка (моя калибровка)");
             ScheduleSettingsSave();
 
             CalibrationInstruction = "Калибровка завершена.";
@@ -183,7 +168,7 @@ public partial class MainViewModel
             _calibrationCts?.Dispose();
             _calibrationCts = null;
 
-            if (wasMonitoring) IsMonitoring = true;
+            if (wasMonitoring) Dsp.IsMonitoring = true;
         }
     }
 }

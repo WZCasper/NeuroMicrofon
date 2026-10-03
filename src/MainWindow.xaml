@@ -34,11 +34,11 @@
                     </StackPanel>
                 </StackPanel>
 
-                <ToggleButton Grid.Column="1" Style="{StaticResource MutePillToggleStyle}" IsChecked="{Binding IsMuted}">
+                <ToggleButton Grid.Column="1" Style="{StaticResource MutePillToggleStyle}" IsChecked="{Binding Dsp.IsMuted}">
                     <StackPanel Orientation="Horizontal">
                         <Grid Margin="0,0,10,0">
-                            <TextBlock Text="МИКРОФОН АКТИВЕН" Visibility="{Binding IsMuted, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
-                            <TextBlock Text="МИКРОФОН ЗАГЛУШЕН" Foreground="{StaticResource DangerBrush}" Visibility="{Binding IsMuted, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                            <TextBlock Text="МИКРОФОН АКТИВЕН" Visibility="{Binding Dsp.IsMuted, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                            <TextBlock Text="МИКРОФОН ЗАГЛУШЕН" Foreground="{StaticResource DangerBrush}" Visibility="{Binding Dsp.IsMuted, Converter={StaticResource BoolToVisibilityConverter}}"/>
                         </Grid>
                         <Border Background="{StaticResource SurfaceAltBrush}" CornerRadius="4" Padding="6,3">
                             <TextBlock Text="{Binding HotkeyAndUpdates.HotkeyDisplayText}" FontFamily="{StaticResource MonoFontFamily}" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
@@ -81,25 +81,25 @@
                             <TextBlock Text="нажмите блок, чтобы включить/отключить" Style="{StaticResource MonoLabelStyle}" FontSize="10" HorizontalAlignment="Right"/>
                         </Grid>
                         <UniformGrid Columns="6" Rows="1">
-                            <ToggleButton Style="{StaticResource PipelineNodeToggleStyle}" IsChecked="{Binding DenoiserEnabled}" Margin="3">
+                            <ToggleButton Style="{StaticResource PipelineNodeToggleStyle}" IsChecked="{Binding Dsp.DenoiserEnabled}" Margin="3">
                                 <StackPanel>
                                     <TextBlock Text="ШУМОПОДАВЛЕНИЕ" Style="{StaticResource MonoLabelStyle}" FontSize="8" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"/>
                                     <TextBlock Text="RNNoise AI" FontWeight="Bold" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0"/>
                                 </StackPanel>
                             </ToggleButton>
-                            <ToggleButton Style="{StaticResource PipelineNodeToggleStyle}" IsChecked="{Binding GateEnabled}" Margin="3">
+                            <ToggleButton Style="{StaticResource PipelineNodeToggleStyle}" IsChecked="{Binding Dsp.GateEnabled}" Margin="3">
                                 <StackPanel>
                                     <TextBlock Text="ШУМОВОЙ ГЕЙТ" Style="{StaticResource MonoLabelStyle}" FontSize="8" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"/>
                                     <TextBlock Text="Gate" FontWeight="Bold" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0"/>
                                 </StackPanel>
                             </ToggleButton>
-                            <ToggleButton Style="{StaticResource PipelineNodeToggleStyle}" IsChecked="{Binding AgcEnabled}" Margin="3">
+                            <ToggleButton Style="{StaticResource PipelineNodeToggleStyle}" IsChecked="{Binding Dsp.AgcEnabled}" Margin="3">
                                 <StackPanel>
                                     <TextBlock Text="АВТОУСИЛЕНИЕ" Style="{StaticResource MonoLabelStyle}" FontSize="8" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"/>
                                     <TextBlock Text="AGC" FontWeight="Bold" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0"/>
                                 </StackPanel>
                             </ToggleButton>
-                            <ToggleButton Style="{StaticResource PipelineNodeToggleStyle}" IsChecked="{Binding CompEnabled}" Margin="3">
+                            <ToggleButton Style="{StaticResource PipelineNodeToggleStyle}" IsChecked="{Binding Dsp.CompEnabled}" Margin="3">
                                 <StackPanel>
                                     <TextBlock Text="ДИНАМИКА" Style="{StaticResource MonoLabelStyle}" FontSize="8" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"/>
                                     <TextBlock Text="Compressor" FontWeight="Bold" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0"/>
@@ -144,10 +144,10 @@
 
                                 <Grid Margin="0,0,0,4">
                                     <TextBlock Text="Прослушать себя" Style="{StaticResource MonoLabelStyle}" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                                    <ToggleButton HorizontalAlignment="Right" Style="{StaticResource MutePillToggleStyle}" Padding="10,4" IsChecked="{Binding IsMonitoring}">
+                                    <ToggleButton HorizontalAlignment="Right" Style="{StaticResource MutePillToggleStyle}" Padding="10,4" IsChecked="{Binding Dsp.IsMonitoring}">
                                         <Grid>
-                                            <TextBlock Text="ВЫКЛ" FontSize="10" Visibility="{Binding IsMonitoring, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
-                                            <TextBlock Text="ВКЛ" FontSize="10" Foreground="{StaticResource AccentBrush}" Visibility="{Binding IsMonitoring, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                            <TextBlock Text="ВЫКЛ" FontSize="10" Visibility="{Binding Dsp.IsMonitoring, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                                            <TextBlock Text="ВКЛ" FontSize="10" Foreground="{StaticResource AccentBrush}" Visibility="{Binding Dsp.IsMonitoring, Converter={StaticResource BoolToVisibilityConverter}}"/>
                                         </Grid>
                                     </ToggleButton>
                                 </Grid>
@@ -207,7 +207,7 @@
                                     <Button.Style>
                                         <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
                                             <Style.Triggers>
-                                                <DataTrigger Binding="{Binding ActivePresetLabel}" Value="Автонастройка (моя калибровка)">
+                                                <DataTrigger Binding="{Binding Dsp.ActivePresetLabel}" Value="Автонастройка (моя калибровка)">
                                                     <Setter Property="BorderBrush" Value="{StaticResource PurpleBrush}"/>
                                                     <Setter Property="Background" Value="{StaticResource SurfaceLightBrush}"/>
                                                 </DataTrigger>
@@ -216,12 +216,12 @@
                                     </Button.Style>
                                 </Button>
 
-                                <ItemsControl ItemsSource="{Binding Presets}">
+                                <ItemsControl ItemsSource="{Binding Dsp.Presets}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <Button HorizontalAlignment="Stretch"
                                                     HorizontalContentAlignment="Left" Margin="0,0,0,6"
-                                                    Command="{Binding DataContext.SelectPresetCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    Command="{Binding DataContext.Dsp.SelectPresetCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}">
                                                 <Button.Style>
                                                     <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
@@ -230,7 +230,7 @@
                                                                 <DataTrigger.Binding>
                                                                     <MultiBinding Converter="{StaticResource PresetActiveConverter}">
                                                                         <Binding Path="Name"/>
-                                                                        <Binding Path="DataContext.ActivePresetLabel" RelativeSource="{RelativeSource AncestorType=ItemsControl}"/>
+                                                                        <Binding Path="DataContext.Dsp.ActivePresetLabel" RelativeSource="{RelativeSource AncestorType=ItemsControl}"/>
                                                                     </MultiBinding>
                                                                 </DataTrigger.Binding>
                                                                 <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
@@ -290,44 +290,44 @@
                             <StackPanel>
                                 <Grid Margin="0,0,0,14">
                                     <TextBlock Text="ТОНКАЯ НАСТРОЙКА DSP" Style="{StaticResource CardHeaderStyle}" HorizontalAlignment="Left"/>
-                                    <TextBlock Text="{Binding ActivePresetLabel}" Style="{StaticResource MonoLabelStyle}" FontSize="10" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
+                                    <TextBlock Text="{Binding Dsp.ActivePresetLabel}" Style="{StaticResource MonoLabelStyle}" FontSize="10" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
                                 </Grid>
 
                                 <Grid Margin="0,0,0,4">
                                     <TextBlock Text="СРЕЗ НИЗКИХ ЧАСТОТ" Style="{StaticResource MonoLabelStyle}" HorizontalAlignment="Left"/>
-                                    <TextBlock Text="{Binding HighPassCutoffHz, StringFormat={}{0:F0} Гц}" Style="{StaticResource MonoLabelStyle}" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
+                                    <TextBlock Text="{Binding Dsp.HighPassCutoffHz, StringFormat={}{0:F0} Гц}" Style="{StaticResource MonoLabelStyle}" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
                                 </Grid>
-                                <Slider Minimum="40" Maximum="200" Value="{Binding HighPassCutoffHz}" Margin="0,0,0,14"/>
+                                <Slider Minimum="40" Maximum="200" Value="{Binding Dsp.HighPassCutoffHz}" Margin="0,0,0,14"/>
 
                                 <Grid Margin="0,0,0,4">
                                     <TextBlock Text="ПОРОГ ШУМОВОГО ГЕЙТА" Style="{StaticResource MonoLabelStyle}" HorizontalAlignment="Left"/>
-                                    <TextBlock Text="{Binding GateThresholdDb, StringFormat={}{0:F0} дБ}" Style="{StaticResource MonoLabelStyle}" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
+                                    <TextBlock Text="{Binding Dsp.GateThresholdDb, StringFormat={}{0:F0} дБ}" Style="{StaticResource MonoLabelStyle}" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
                                 </Grid>
-                                <Slider Minimum="-70" Maximum="-20" Value="{Binding GateThresholdDb}" Margin="0,0,0,14"/>
+                                <Slider Minimum="-70" Maximum="-20" Value="{Binding Dsp.GateThresholdDb}" Margin="0,0,0,14"/>
 
                                 <Grid Margin="0,0,0,4">
                                     <TextBlock Text="СИЛА ШУМОПОДАВЛЕНИЯ" Style="{StaticResource MonoLabelStyle}" HorizontalAlignment="Left"/>
-                                    <TextBlock Text="{Binding DenoiserWetMix, StringFormat={}{0:P0}}" Style="{StaticResource MonoLabelStyle}" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
+                                    <TextBlock Text="{Binding Dsp.DenoiserWetMix, StringFormat={}{0:P0}}" Style="{StaticResource MonoLabelStyle}" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
                                 </Grid>
-                                <Slider Minimum="0" Maximum="1" Value="{Binding DenoiserWetMix}" Margin="0,0,0,14"/>
+                                <Slider Minimum="0" Maximum="1" Value="{Binding Dsp.DenoiserWetMix}" Margin="0,0,0,14"/>
 
                                 <Grid Margin="0,0,0,4">
                                     <TextBlock Text="ЦЕЛЕВОЙ УРОВЕНЬ AGC" Style="{StaticResource MonoLabelStyle}" HorizontalAlignment="Left"/>
-                                    <TextBlock Text="{Binding AgcTargetLevelDb, StringFormat={}{0:F0} дБFS}" Style="{StaticResource MonoLabelStyle}" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
+                                    <TextBlock Text="{Binding Dsp.AgcTargetLevelDb, StringFormat={}{0:F0} дБFS}" Style="{StaticResource MonoLabelStyle}" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
                                 </Grid>
-                                <Slider Minimum="-30" Maximum="-6" Value="{Binding AgcTargetLevelDb}" Margin="0,0,0,14"/>
+                                <Slider Minimum="-30" Maximum="-6" Value="{Binding Dsp.AgcTargetLevelDb}" Margin="0,0,0,14"/>
 
                                 <Grid Margin="0,0,0,4">
                                     <TextBlock Text="ПОРОГ КОМПРЕССОРА" Style="{StaticResource MonoLabelStyle}" HorizontalAlignment="Left"/>
-                                    <TextBlock Text="{Binding CompressorThresholdDb, StringFormat={}{0:F0} дБFS}" Style="{StaticResource MonoLabelStyle}" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
+                                    <TextBlock Text="{Binding Dsp.CompressorThresholdDb, StringFormat={}{0:F0} дБFS}" Style="{StaticResource MonoLabelStyle}" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
                                 </Grid>
-                                <Slider Minimum="-30" Maximum="0" Value="{Binding CompressorThresholdDb}" Margin="0,0,0,14"/>
+                                <Slider Minimum="-30" Maximum="0" Value="{Binding Dsp.CompressorThresholdDb}" Margin="0,0,0,14"/>
 
                                 <Grid Margin="0,0,0,4">
                                     <TextBlock Text="КОЭФФИЦИЕНТ КОМПРЕССОРА" Style="{StaticResource MonoLabelStyle}" HorizontalAlignment="Left"/>
-                                    <TextBlock Text="{Binding CompressorRatio, StringFormat={}{0:F1}:1}" Style="{StaticResource MonoLabelStyle}" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
+                                    <TextBlock Text="{Binding Dsp.CompressorRatio, StringFormat={}{0:F1}:1}" Style="{StaticResource MonoLabelStyle}" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
                                 </Grid>
-                                <Slider Minimum="1" Maximum="10" Value="{Binding CompressorRatio}"/>
+                                <Slider Minimum="1" Maximum="10" Value="{Binding Dsp.CompressorRatio}"/>
                             </StackPanel>
                         </Border>
                     </StackPanel>

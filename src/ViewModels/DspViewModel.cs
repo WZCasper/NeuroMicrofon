@@ -1,6 +1,16 @@
-// MainViewModel: DSP-цепочка — пресеты, параметры-ползунки (гейт, AGC,
-// компрессор, ВЧ-фильтр), включение/отключение отдельных модулей, заглушка
-// микрофона. Вынесено из основного файла по мере его роста.
+// Этап B разбиения MainViewModel: настоящий дочерний ViewModel для DSP-цепочки
+// — пресеты, параметры-ползунки (гейт, AGC, компрессор, ВЧ-фильтр),
+// включение/отключение отдельных модулей обработки, заглушка микрофона и
+// прослушивание (monitoring).
+//
+// В отличие от Этапа A (где всё это было просто ещё одним файлом того же
+// класса MainViewModel), это отдельный объект. Он получает извне только то,
+// что ему реально нужно: общий AudioEngine (тот же экземпляр, что держит
+// MainViewModel), откуда взять устройство для прослушивания, и два коллбэка
+// родителя (сообщить статус, попросить сохранить настройки). Применение
+// результата автонастройки (CalibrationViewModel) и загрузка сохранённых
+// настроек (MainViewModel.Settings.cs) идут через один и тот же публичный
+// метод ApplyExternalValues — он же использует SelectedPreset.
 
 using System;
 using System.Collections.Generic;
@@ -19,8 +29,14 @@ using NeuroMicrophone.Services;
 
 namespace NeuroMicrophone.ViewModels;
 
-public partial class MainViewModel
+public sealed class DspViewModel : ViewModelBase
 {
+    private readonly AudioEngine _engine;
+    private readonly Func<AudioDeviceInfo?> _getMonitorDevice;
+    private readonly Action<string?> _setStatusMessage;
+    private readonly Action _scheduleSettingsSave;
+    private readonly Func<bool> _isLoadingSettings;
+
     public IReadOnlyList<DspPreset> Presets => DspPreset.BuiltIn;
 
     // --- Включение/отключение отдельных модулей DSP-цепочки (визуальная "цепочка обработки") ---
@@ -89,9 +105,10 @@ public partial class MainViewModel
 
             if (value)
             {
-                if (SelectedMonitorDevice == null)
+                AudioDeviceInfo? monitorDevice = _getMonitorDevice();
+                if (monitorDevice == null)
                 {
-                    StatusMessage = "Выберите устройство для прослушивания.";
+                    _setStatusMessage("Выберите устройство для прослушивания.");
                     _isMonitoring = false;
                     OnPropertyChanged(nameof(IsMonitoring));
                     return;
@@ -99,11 +116,11 @@ public partial class MainViewModel
 
                 try
                 {
-                    _engine.StartMonitoring(SelectedMonitorDevice.Id);
+                    _engine.StartMonitoring(monitorDevice.Id);
                 }
                 catch (Exception ex)
                 {
-                    StatusMessage = $"Не удалось включить прослушивание: {ex.Message}";
+                    _setStatusMessage($"Не удалось включить прослушивание: {ex.Message}");
                     _isMonitoring = false;
                     OnPropertyChanged(nameof(IsMonitoring));
                 }
@@ -133,22 +150,8 @@ public partial class MainViewModel
         set
         {
             if (!SetProperty(ref _selectedPreset, value) || value == null) return;
-
-            _isApplyingPresetOrCalibration = true;
-            try
-            {
-                GateThresholdDb = value.GateThresholdDb;
-                DenoiserWetMix = value.DenoiserWetMix;
-                AgcTargetLevelDb = value.AgcTargetLevelDb;
-                CompressorThresholdDb = value.CompressorThresholdDb;
-                CompressorRatio = value.CompressorRatio;
-            }
-            finally
-            {
-                _isApplyingPresetOrCalibration = false;
-            }
-
-            ActivePresetLabel = value.Name;
+            ApplyExternalValues(value.GateThresholdDb, value.DenoiserWetMix, value.AgcTargetLevelDb,
+                value.CompressorThresholdDb, value.CompressorRatio, value.Name);
         }
     }
 
@@ -161,7 +164,7 @@ public partial class MainViewModel
             if (!SetProperty(ref _gateThresholdDb, value)) return;
             if (_engine.Pipeline != null) _engine.Pipeline.Gate.ThresholdDb = value;
             MarkCustomizedIfUserEdited();
-            ScheduleSettingsSave();
+            _scheduleSettingsSave();
         }
     }
 
@@ -174,7 +177,7 @@ public partial class MainViewModel
             if (!SetProperty(ref _denoiserWetMix, value)) return;
             if (_engine.Pipeline != null) _engine.Pipeline.Denoiser.WetMix = value;
             MarkCustomizedIfUserEdited();
-            ScheduleSettingsSave();
+            _scheduleSettingsSave();
         }
     }
 
@@ -187,7 +190,7 @@ public partial class MainViewModel
             if (!SetProperty(ref _agcTargetLevelDb, value)) return;
             if (_engine.Pipeline != null) _engine.Pipeline.Agc.TargetLevelDb = value;
             MarkCustomizedIfUserEdited();
-            ScheduleSettingsSave();
+            _scheduleSettingsSave();
         }
     }
 
@@ -200,7 +203,7 @@ public partial class MainViewModel
             if (!SetProperty(ref _compressorThresholdDb, value)) return;
             if (_engine.Pipeline != null) _engine.Pipeline.Comp.ThresholdDb = value;
             MarkCustomizedIfUserEdited();
-            ScheduleSettingsSave();
+            _scheduleSettingsSave();
         }
     }
 
@@ -213,7 +216,7 @@ public partial class MainViewModel
             if (!SetProperty(ref _compressorRatio, value)) return;
             if (_engine.Pipeline != null) _engine.Pipeline.Comp.Ratio = value;
             MarkCustomizedIfUserEdited();
-            ScheduleSettingsSave();
+            _scheduleSettingsSave();
         }
     }
 
@@ -226,9 +229,76 @@ public partial class MainViewModel
             if (!SetProperty(ref _highPassCutoffHz, value)) return;
             if (_engine.Pipeline != null) _engine.Pipeline.HighPass.CutoffHz = value;
             MarkCustomizedIfUserEdited();
-            ScheduleSettingsSave();
+            _scheduleSettingsSave();
         }
     }
+
+    public ICommand ToggleMuteCommand { get; }
+    public ICommand SelectPresetCommand { get; }
+
+    public DspViewModel(AudioEngine engine, Func<AudioDeviceInfo?> getMonitorDevice, Action<string?> setStatusMessage,
+        Action scheduleSettingsSave, Func<bool> isLoadingSettings)
+    {
+        _engine = engine;
+        _getMonitorDevice = getMonitorDevice;
+        _setStatusMessage = setStatusMessage;
+        _scheduleSettingsSave = scheduleSettingsSave;
+        _isLoadingSettings = isLoadingSettings;
+
+        ToggleMuteCommand = new RelayCommand(() => IsMuted = !IsMuted);
+        SelectPresetCommand = new RelayCommand<DspPreset>(preset =>
+        {
+            if (preset != null) SelectedPreset = preset;
+        });
+    }
+
+    /// <summary>
+    /// Применяет готовый набор значений (пресет или результат калибровки) ко
+    /// всей DSP-цепочке одним действием — используется SelectedPreset выше и
+    /// CalibrationViewModel при повторном применении сохранённого результата
+    /// калибровки (RecallCalibration), когда известны сразу все 5 значений.
+    /// Отличается от ручного перетаскивания ползунка тем, что не помечает
+    /// ActivePresetLabel как "Пользовательские настройки" (BeginExternalEdit/
+    /// EndExternalEdit ниже на время применения), а выставляет его в
+    /// activePresetLabel явно.
+    /// </summary>
+    public void ApplyExternalValues(float gateThresholdDb, float denoiserWetMix, float agcTargetLevelDb,
+        float compressorThresholdDb, float compressorRatio, string activePresetLabel)
+    {
+        BeginExternalEdit();
+        try
+        {
+            GateThresholdDb = gateThresholdDb;
+            DenoiserWetMix = denoiserWetMix;
+            AgcTargetLevelDb = agcTargetLevelDb;
+            CompressorThresholdDb = compressorThresholdDb;
+            CompressorRatio = compressorRatio;
+        }
+        finally
+        {
+            EndExternalEdit();
+        }
+
+        SetActivePresetLabel(activePresetLabel);
+    }
+
+    /// <summary>
+    /// Пара методов для CalibrationViewModel: ход автонастройки применяет
+    /// значения ПОСТЕПЕННО, по мере готовности каждого этапа (не все 5 сразу,
+    /// как ApplyExternalValues выше), поэтому ему нужен более гранулярный
+    /// контроль — самому выставить нужные свойства между Begin и End,
+    /// по-прежнему не помечая это как "Пользовательские настройки".
+    /// </summary>
+    public void BeginExternalEdit() => _isApplyingPresetOrCalibration = true;
+
+    public void EndExternalEdit() => _isApplyingPresetOrCalibration = false;
+
+    /// <summary>
+    /// Публичный сеттер ActivePresetLabel для CalibrationViewModel — сам
+    /// autoproperty-сеттер приватный, т.к. из XAML и остальной DSP-логики
+    /// label выставляется только изнутри этого класса.
+    /// </summary>
+    public void SetActivePresetLabel(string label) => ActivePresetLabel = label;
 
     /// <summary>
     /// Помечает текущий набор настроек как "пользовательский" — но только
@@ -237,11 +307,7 @@ public partial class MainViewModel
     /// </summary>
     private void MarkCustomizedIfUserEdited()
     {
-        if (_isApplyingPresetOrCalibration || _isLoadingSettings) return;
+        if (_isApplyingPresetOrCalibration || _isLoadingSettings()) return;
         ActivePresetLabel = "Пользовательские настройки";
     }
-
-    public ICommand ToggleMuteCommand { get; }
-
-    public ICommand SelectPresetCommand { get; }
 }

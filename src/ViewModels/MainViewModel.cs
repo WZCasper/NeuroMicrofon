@@ -70,7 +70,7 @@ public sealed partial class MainViewModel : ViewModelBase, IDisposable
             if (!SetProperty(ref _selectedMonitorDevice, value)) return;
             ScheduleSettingsSave();
 
-            if (IsMonitoring && value != null)
+            if (Dsp.IsMonitoring && value != null)
             {
                 try
                 {
@@ -115,17 +115,23 @@ public sealed partial class MainViewModel : ViewModelBase, IDisposable
     /// <summary>Этап B разбиения: горячая клавиша и проверка обновлений — тем же принципом, что и Driver выше.</summary>
     public HotkeyAndUpdatesViewModel HotkeyAndUpdates { get; }
 
+    /// <summary>
+    /// Этап B разбиения: DSP-цепочка — тем же принципом, что и Driver выше.
+    /// Дополнительно получает общий AudioEngine (тот же экземпляр, что и
+    /// Core) и способ узнать текущее устройство для прослушивания — оно
+    /// выбирается на Core (SelectedMonitorDevice), поэтому передаётся
+    /// отложенно, через делегат, а не значением на момент конструктора.
+    /// </summary>
+    public DspViewModel Dsp { get; }
+
     public MainViewModel()
     {
         Driver = new DriverViewModel(_driverInstaller, message => StatusMessage = message, ScheduleSettingsSave);
         HotkeyAndUpdates = new HotkeyAndUpdatesViewModel(message => StatusMessage = message, ScheduleSettingsSave);
+        Dsp = new DspViewModel(_engine, () => SelectedMonitorDevice, message => StatusMessage = message,
+            ScheduleSettingsSave, () => _isLoadingSettings);
 
         AutoTuneCommand = new RelayCommand(async () => await RunCalibrationAsync(), () => !IsCalibrating && _engine.IsRunning);
-        ToggleMuteCommand = new RelayCommand(() => IsMuted = !IsMuted);
-        SelectPresetCommand = new RelayCommand<DspPreset>(preset =>
-        {
-            if (preset != null) SelectedPreset = preset;
-        });
         RecallCalibrationCommand = new RelayCommand(RecallCalibration, () => HasCalibrationResult);
 
         _engine.ErrorOccurred += (_, message) => StatusMessage = message;
@@ -214,20 +220,20 @@ public sealed partial class MainViewModel : ViewModelBase, IDisposable
     /// </summary>
     private void ApplyCurrentDspSettingsToPipeline()
     {
-        DspPipeline? dsp = _engine.Pipeline;
-        if (dsp == null) return;
+        DspPipeline? pipeline = _engine.Pipeline;
+        if (pipeline == null) return;
 
-        dsp.Gate.ThresholdDb = GateThresholdDb;
-        dsp.Denoiser.WetMix = DenoiserWetMix;
-        dsp.Agc.TargetLevelDb = AgcTargetLevelDb;
-        dsp.Comp.ThresholdDb = CompressorThresholdDb;
-        dsp.Comp.Ratio = CompressorRatio;
-        dsp.HighPass.CutoffHz = HighPassCutoffHz;
+        pipeline.Gate.ThresholdDb = Dsp.GateThresholdDb;
+        pipeline.Denoiser.WetMix = Dsp.DenoiserWetMix;
+        pipeline.Agc.TargetLevelDb = Dsp.AgcTargetLevelDb;
+        pipeline.Comp.ThresholdDb = Dsp.CompressorThresholdDb;
+        pipeline.Comp.Ratio = Dsp.CompressorRatio;
+        pipeline.HighPass.CutoffHz = Dsp.HighPassCutoffHz;
 
-        dsp.Denoiser.Enabled = DenoiserEnabled;
-        dsp.Gate.Enabled = GateEnabled;
-        dsp.Agc.Enabled = AgcEnabled;
-        dsp.Comp.Enabled = CompEnabled;
+        pipeline.Denoiser.Enabled = Dsp.DenoiserEnabled;
+        pipeline.Gate.Enabled = Dsp.GateEnabled;
+        pipeline.Agc.Enabled = Dsp.AgcEnabled;
+        pipeline.Comp.Enabled = Dsp.CompEnabled;
     }
 
     public void Dispose()
