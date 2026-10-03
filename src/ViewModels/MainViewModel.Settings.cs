@@ -83,7 +83,7 @@ public partial class MainViewModel
                 HotkeyDisplayText = BuildHotkeyDisplayText(settings.HotkeyModifiers, settings.HotkeyVirtualKey);
             }
 
-            _publishedDriverInfName = settings.PublishedDriverInfName;
+            Driver.LoadPublishedDriverInfName(settings.PublishedDriverInfName);
             IsAutostartEnabled = settings.LaunchOnStartup;
         }
         finally
@@ -115,7 +115,7 @@ public partial class MainViewModel
             HotkeyModifiers = HotkeyModifierFlags,
             HotkeyVirtualKey = HotkeyVirtualKey,
             LaunchOnStartup = IsAutostartEnabled,
-            PublishedDriverInfName = _publishedDriverInfName,
+            PublishedDriverInfName = Driver.PublishedDriverInfName,
             HasDspSettings = true,
             HasCalibrationResult = HasCalibrationResult,
             CalibratedGateThresholdDb = _calibratedGateThresholdDb,

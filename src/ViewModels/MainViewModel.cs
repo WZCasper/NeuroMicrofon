@@ -25,6 +25,7 @@ namespace NeuroMicrophone.ViewModels;
 public sealed partial class MainViewModel : ViewModelBase, IDisposable
 {
     private readonly AudioEngine _engine = new();
+    private readonly DriverInstaller _driverInstaller = new();
 
     private readonly DispatcherTimer _meterTimer;
     private readonly DispatcherTimer _saveDebounceTimer;
@@ -102,12 +103,21 @@ public sealed partial class MainViewModel : ViewModelBase, IDisposable
     private string? _statusMessage;
     public string? StatusMessage { get => _statusMessage; private set => SetProperty(ref _statusMessage, value); }
 
+    /// <summary>
+    /// Этап B разбиения: работа с виртуальным драйвером вынесена в
+    /// настоящий дочерний ViewModel (не просто в отдельный partial-файл, как
+    /// на Этапе A). MainViewModel передаёт ему только то, что ему реально
+    /// нужно извне — сообщить статус и попросить сохранить настройки —
+    /// коллбэками, не раскрывая ему ничего другого о себе.
+    /// </summary>
+    public DriverViewModel Driver { get; }
+
     public MainViewModel()
     {
+        Driver = new DriverViewModel(_driverInstaller, message => StatusMessage = message, ScheduleSettingsSave);
+
         AutoTuneCommand = new RelayCommand(async () => await RunCalibrationAsync(), () => !IsCalibrating && _engine.IsRunning);
         ToggleMuteCommand = new RelayCommand(() => IsMuted = !IsMuted);
-        InstallDriverCommand = new RelayCommand(async () => await InstallDriverAsync(), () => !IsDriverInstalled);
-        UninstallDriverCommand = new RelayCommand(async () => await UninstallDriverAsync(), () => IsDriverInstalled);
         SelectPresetCommand = new RelayCommand<DspPreset>(preset =>
         {
             if (preset != null) SelectedPreset = preset;
@@ -119,8 +129,6 @@ public sealed partial class MainViewModel : ViewModelBase, IDisposable
             if (string.IsNullOrEmpty(UpdateAvailableUrl)) return;
             Process.Start(new ProcessStartInfo(UpdateAvailableUrl) { UseShellExecute = true });
         });
-        OpenVbCableLinkCommand = new RelayCommand(() =>
-            Process.Start(new ProcessStartInfo("https://vb-audio.com/Cable/") { UseShellExecute = true }));
 
         _engine.ErrorOccurred += (_, message) => StatusMessage = message;
 
@@ -138,7 +146,7 @@ public sealed partial class MainViewModel : ViewModelBase, IDisposable
         };
 
         RefreshDeviceLists();
-        IsDriverInstalled = _driverInstaller.IsDriverInstalled();
+        // Driver уже сам определил своё состояние в собственном конструкторе выше.
         IsAutostartEnabled = AutostartService.IsEnabled();
 
         SelectedInputDevice = InputDevices.FirstOrDefault();

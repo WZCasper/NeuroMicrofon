@@ -157,7 +157,7 @@
                         </Border>
 
                         <Border Background="{StaticResource SurfaceBrush}" CornerRadius="8" Padding="12" Margin="0,0,0,16"
-                                Visibility="{Binding IsDriverInstalled, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                                Visibility="{Binding Driver.IsDriverInstalled, Converter={StaticResource InverseBoolToVisibilityConverter}}">
                             <StackPanel>
                                 <TextBlock TextWrapping="Wrap" Style="{StaticResource MonoLabelStyle}" Foreground="{StaticResource DangerBrush}" Margin="0,0,0,10">
                                     Виртуальный аудиокабель не найден. Программа не может сама создать и подписать
@@ -167,9 +167,9 @@
                                 </TextBlock>
                                 <StackPanel Orientation="Horizontal">
                                     <Button Content="СКАЧАТЬ VB-CABLE" Style="{StaticResource SecondaryButtonStyle}"
-                                            Command="{Binding OpenVbCableLinkCommand}" HorizontalAlignment="Left" Margin="0,0,8,0"/>
+                                            Command="{Binding Driver.OpenVbCableLinkCommand}" HorizontalAlignment="Left" Margin="0,0,8,0"/>
                                     <Button Content="У МЕНЯ СВОЙ ДРАЙВЕР" Style="{StaticResource SecondaryButtonStyle}"
-                                            Command="{Binding InstallDriverCommand}" HorizontalAlignment="Left"/>
+                                            Command="{Binding Driver.InstallDriverCommand}" HorizontalAlignment="Left"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -361,8 +361,8 @@
                         <Separator Background="{StaticResource BorderBrush2}" Margin="0,0,0,14"/>
 
                         <Button Content="УДАЛИТЬ ДРАЙВЕР" Style="{StaticResource DangerGhostButtonStyle}"
-                                Command="{Binding UninstallDriverCommand}" HorizontalAlignment="Left"
-                                Visibility="{Binding IsDriverInstalled, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                Command="{Binding Driver.UninstallDriverCommand}" HorizontalAlignment="Left"
+                                Visibility="{Binding Driver.IsDriverInstalled, Converter={StaticResource BoolToVisibilityConverter}}"/>
                     </StackPanel>
                 </Border>
 
