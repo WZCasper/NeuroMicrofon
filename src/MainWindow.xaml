@@ -182,14 +182,14 @@
                                     4 этапа по 5 секунд: фоновый шум, обычная речь, громкая речь, стук по клавиатуре/мышке — параметры подбираются автоматически.
                                 </TextBlock>
                                 <Button Content="АВТОНАСТРОЙКА (20 СЕК)" Style="{StaticResource CalibrationButtonStyle}"
-                                        Command="{Binding AutoTuneCommand}" HorizontalAlignment="Stretch" Margin="0,0,0,10"/>
-                                <ProgressBar Value="{Binding CalibrationProgress, Mode=OneWay}" Minimum="0" Maximum="100" Margin="0,0,0,8"/>
-                                <TextBlock Text="{Binding CalibrationInstruction}" TextWrapping="Wrap" Style="{StaticResource MonoLabelStyle}"/>
+                                        Command="{Binding Calibration.AutoTuneCommand}" HorizontalAlignment="Stretch" Margin="0,0,0,10"/>
+                                <ProgressBar Value="{Binding Calibration.CalibrationProgress, Mode=OneWay}" Minimum="0" Maximum="100" Margin="0,0,0,8"/>
+                                <TextBlock Text="{Binding Calibration.CalibrationInstruction}" TextWrapping="Wrap" Style="{StaticResource MonoLabelStyle}"/>
                                 <!-- Пик щелчков клавиатуры/мыши, измеренный на 4-м этапе. Пока измерения
                                      не было, строка скрыта: иначе она показывала бы вводящее в заблуждение "0 дБ". -->
-                                <Grid Margin="0,8,0,0" Visibility="{Binding HasKeyboardNoisePeak, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <Grid Margin="0,8,0,0" Visibility="{Binding Calibration.HasKeyboardNoisePeak, Converter={StaticResource BoolToVisibilityConverter}}">
                                     <TextBlock Text="ПИК ЩЕЛЧКОВ КЛАВИАТУРЫ" Style="{StaticResource MonoLabelStyle}" HorizontalAlignment="Left"/>
-                                    <TextBlock Text="{Binding KeyboardNoisePeakDb, StringFormat={}{0:F0} дБ}" Style="{StaticResource MonoLabelStyle}" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
+                                    <TextBlock Text="{Binding Calibration.KeyboardNoisePeakDb, StringFormat={}{0:F0} дБ}" Style="{StaticResource MonoLabelStyle}" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
                                 </Grid>
                             </StackPanel>
                         </Border>
@@ -200,7 +200,7 @@
 
                                 <Button HorizontalAlignment="Stretch"
                                         HorizontalContentAlignment="Left" Margin="0,0,0,6"
-                                        Command="{Binding RecallCalibrationCommand}">
+                                        Command="{Binding Calibration.RecallCalibrationCommand}">
                                     <Grid>
                                         <TextBlock Text="🎯 МОЯ АВТОНАСТРОЙКА" Foreground="{StaticResource PurpleBrush}"/>
                                     </Grid>

@@ -124,15 +124,23 @@ public sealed partial class MainViewModel : ViewModelBase, IDisposable
     /// </summary>
     public DspViewModel Dsp { get; }
 
+    /// <summary>
+    /// Этап B разбиения, финальный шаг: автонастройка — тем же принципом,
+    /// что и остальные выше. В отличие от них, по-настоящему зависит от
+    /// соседнего дочернего ViewModel — получает уже созданный Dsp и
+    /// применяет к нему промежуточные значения по ходу калибровки только
+    /// через его публичное API, см. комментарий в начале CalibrationViewModel.cs.
+    /// Поэтому конструируется ПОСЛЕ Dsp.
+    /// </summary>
+    public CalibrationViewModel Calibration { get; }
+
     public MainViewModel()
     {
         Driver = new DriverViewModel(_driverInstaller, message => StatusMessage = message, ScheduleSettingsSave);
         HotkeyAndUpdates = new HotkeyAndUpdatesViewModel(message => StatusMessage = message, ScheduleSettingsSave);
         Dsp = new DspViewModel(_engine, () => SelectedMonitorDevice, message => StatusMessage = message,
             ScheduleSettingsSave, () => _isLoadingSettings);
-
-        AutoTuneCommand = new RelayCommand(async () => await RunCalibrationAsync(), () => !IsCalibrating && _engine.IsRunning);
-        RecallCalibrationCommand = new RelayCommand(RecallCalibration, () => HasCalibrationResult);
+        Calibration = new CalibrationViewModel(_engine, Dsp, message => StatusMessage = message, ScheduleSettingsSave);
 
         _engine.ErrorOccurred += (_, message) => StatusMessage = message;
 
@@ -240,8 +248,7 @@ public sealed partial class MainViewModel : ViewModelBase, IDisposable
     {
         _meterTimer.Stop();
         _saveDebounceTimer.Stop();
-        _calibrationCts?.Cancel();
-        _calibrationCts?.Dispose();
+        Calibration.CancelPendingCalibration();
         _engine.Dispose();
     }
 }

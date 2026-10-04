@@ -69,11 +69,8 @@ public partial class MainViewModel
 
             if (settings.HasCalibrationResult)
             {
-                _calibratedGateThresholdDb = settings.CalibratedGateThresholdDb;
-                _calibratedWetMix = settings.CalibratedWetMix;
-                _calibratedCompThresholdDb = settings.CalibratedCompThresholdDb;
-                _calibratedCompRatio = settings.CalibratedCompRatio;
-                HasCalibrationResult = true;
+                Calibration.LoadCalibrationResult(settings.CalibratedGateThresholdDb, settings.CalibratedWetMix,
+                    settings.CalibratedCompThresholdDb, settings.CalibratedCompRatio);
             }
 
             if (settings.HotkeyModifiers != 0 && settings.HotkeyVirtualKey != 0)
@@ -115,11 +112,11 @@ public partial class MainViewModel
             LaunchOnStartup = IsAutostartEnabled,
             PublishedDriverInfName = Driver.PublishedDriverInfName,
             HasDspSettings = true,
-            HasCalibrationResult = HasCalibrationResult,
-            CalibratedGateThresholdDb = _calibratedGateThresholdDb,
-            CalibratedWetMix = _calibratedWetMix,
-            CalibratedCompThresholdDb = _calibratedCompThresholdDb,
-            CalibratedCompRatio = _calibratedCompRatio,
+            HasCalibrationResult = Calibration.HasCalibrationResult,
+            CalibratedGateThresholdDb = Calibration.CalibratedGateThresholdDb,
+            CalibratedWetMix = Calibration.CalibratedWetMix,
+            CalibratedCompThresholdDb = Calibration.CalibratedCompThresholdDb,
+            CalibratedCompRatio = Calibration.CalibratedCompRatio,
         };
 
         // ConfigureAwait(false) обязателен здесь: MainWindow_Closing вызывает
