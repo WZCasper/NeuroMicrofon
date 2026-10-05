@@ -56,6 +56,24 @@
 
             <DropShadowEffect x:Key="CyanGlowEffect" Color="#FF00F2FE" BlurRadius="16" ShadowDepth="0" Opacity="0.55"/>
             <DropShadowEffect x:Key="PurpleGlowEffect" Color="#FFA855F7" BlurRadius="18" ShadowDepth="0" Opacity="0.45"/>
+            <DropShadowEffect x:Key="EmeraldGlowEffect" Color="#FF34D399" BlurRadius="16" ShadowDepth="0" Opacity="0.5"/>
+
+            <!-- =====================================================================
+                 Обновление палитры по новому присланному макету (стеклянные панели,
+                 неоновое свечение): лёгкий вертикальный градиент вместо плоской заливки
+                 карточек, мягкая светлая окантовка "под стекло" и объёмная тень вместо
+                 плоской рамки — визуально ближе к glass-panel/glow из референса, не
+                 трогая сами механизмы разметки/привязок ниже.
+                 ===================================================================== -->
+            <LinearGradientBrush x:Key="GlassPanelBrush" StartPoint="0,0" EndPoint="0,1">
+                <GradientStop Color="#FF1B2130" Offset="0"/>
+                <GradientStop Color="#FF12151E" Offset="1"/>
+            </LinearGradientBrush>
+            <SolidColorBrush x:Key="GlassBorderBrush" Color="#1EFFFFFF"/>
+            <SolidColorBrush x:Key="OverlayScrimBrush" Color="#CC0B0E16"/>
+
+            <DropShadowEffect x:Key="PanelElevationEffect" Color="#FF000000" Direction="270" BlurRadius="24" ShadowDepth="7" Opacity="0.35"/>
+            <DropShadowEffect x:Key="ModalElevationEffect" Color="#FFA855F7" BlurRadius="42" ShadowDepth="0" Opacity="0.35"/>
 
             <!-- ===================== Конвертеры ===================== -->
             <conv:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
@@ -95,13 +113,15 @@
                 <Setter Property="FontWeight" Value="Bold"/>
             </Style>
 
-            <!-- Карточка-панель: тёмная поверхность со скруглением и тонкой рамкой. -->
+            <!-- Карточка-панель: "стеклянная" поверхность (лёгкий градиент + мягкая
+                 светлая окантовка + объёмная тень) — по новому присланному макету. -->
             <Style x:Key="CardBorderStyle" TargetType="Border">
-                <Setter Property="Background" Value="{StaticResource SurfaceBrush}"/>
-                <Setter Property="BorderBrush" Value="{StaticResource BorderBrush2}"/>
+                <Setter Property="Background" Value="{StaticResource GlassPanelBrush}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource GlassBorderBrush}"/>
                 <Setter Property="BorderThickness" Value="1"/>
-                <Setter Property="CornerRadius" Value="12"/>
-                <Setter Property="Padding" Value="16"/>
+                <Setter Property="CornerRadius" Value="16"/>
+                <Setter Property="Padding" Value="18"/>
+                <Setter Property="Effect" Value="{StaticResource PanelElevationEffect}"/>
             </Style>
 
             <!-- Маленький бейдж-пилюля (как "DSP PRO v1.0", "4 ЭТАПА / 20 СЕК"). -->
@@ -235,6 +255,76 @@
                 <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
             </Style>
 
+            <!-- ===================== Текстовые поля (адрес/порт/пароль OBS) =====================
+                 Без собственного шаблона TextBox/PasswordBox рисуются стандартной светлой
+                 темой Windows — белый прямоугольник на тёмном фоне программы. ScrollViewer
+                 с именем PART_ContentHost — обязательная именованная часть шаблона, без
+                 неё поле не получает курсор ввода и становится нередактируемым. -->
+            <Style TargetType="TextBox">
+                <Setter Property="Background" Value="{StaticResource SurfaceAltBrush}"/>
+                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                <Setter Property="CaretBrush" Value="{StaticResource AccentBrush}"/>
+                <Setter Property="SelectionBrush" Value="{StaticResource AccentDimBrush}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource BorderBrush2}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="FontFamily" Value="{StaticResource MonoFontFamily}"/>
+                <Setter Property="FontSize" Value="12"/>
+                <Setter Property="Padding" Value="10,8"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="TextBox">
+                            <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="8">
+                                <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.5"/>
+                                </Trigger>
+                                <Trigger Property="IsFocused" Value="True">
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style TargetType="PasswordBox">
+                <Setter Property="Background" Value="{StaticResource SurfaceAltBrush}"/>
+                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                <Setter Property="CaretBrush" Value="{StaticResource AccentBrush}"/>
+                <Setter Property="SelectionBrush" Value="{StaticResource AccentDimBrush}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource BorderBrush2}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="FontFamily" Value="{StaticResource MonoFontFamily}"/>
+                <Setter Property="FontSize" Value="12"/>
+                <Setter Property="Padding" Value="10,8"/>
+                <Setter Property="PasswordChar" Value="●"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="PasswordBox">
+                            <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="8">
+                                <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.5"/>
+                                </Trigger>
+                                <Trigger Property="IsFocused" Value="True">
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
             <!-- ===================== Кнопки ===================== -->
             <Style x:Key="PrimaryButtonStyle" TargetType="Button">
                 <Setter Property="Background" Value="{StaticResource AccentGradientBrush}"/>
@@ -361,9 +451,12 @@
                                 <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
                             <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="NodeBorder" Property="BorderBrush" Value="{StaticResource AccentDimBrush}"/>
+                                </Trigger>
                                 <Trigger Property="IsChecked" Value="True">
                                     <Setter TargetName="NodeBorder" Property="Background" Value="{StaticResource SurfaceLightBrush}"/>
-                                    <Setter TargetName="NodeBorder" Property="BorderBrush" Value="{StaticResource AccentDimBrush}"/>
+                                    <Setter TargetName="NodeBorder" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
                                     <Setter TargetName="NodeBorder" Property="Effect" Value="{StaticResource CyanGlowEffect}"/>
                                 </Trigger>
                             </ControlTemplate.Triggers>
@@ -496,6 +589,21 @@
                         </ControlTemplate>
                     </Setter.Value>
                 </Setter>
+            </Style>
+
+            <!-- ===================== Пульсирующая точка "в эфире" (шапка, статус OBS) ===================== -->
+            <Style x:Key="PulseDotStyle" TargetType="Ellipse">
+                <Setter Property="Width" Value="8"/>
+                <Setter Property="Height" Value="8"/>
+                <Style.Triggers>
+                    <EventTrigger RoutedEvent="Loaded">
+                        <BeginStoryboard>
+                            <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                                <DoubleAnimation Storyboard.TargetProperty="Opacity" From="1.0" To="0.3" Duration="0:0:0.9"/>
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </EventTrigger>
+                </Style.Triggers>
             </Style>
 
         </ResourceDictionary>

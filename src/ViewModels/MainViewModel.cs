@@ -11,6 +11,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -18,6 +19,7 @@ using System.Windows.Threading;
 using NeuroMicrophone.Audio;
 using NeuroMicrophone.Driver;
 using NeuroMicrophone.Models;
+using NeuroMicrophone.Obs;
 using NeuroMicrophone.Services;
 
 namespace NeuroMicrophone.ViewModels;
@@ -103,6 +105,28 @@ public sealed partial class MainViewModel : ViewModelBase, IDisposable
     private string? _statusMessage;
     public string? StatusMessage { get => _statusMessage; private set => SetProperty(ref _statusMessage, value); }
 
+    private bool _isEngineRunning;
+    /// <summary>
+    /// true, только если обработка звука реально запущена (оба устройства
+    /// выбраны и движок стартовал без ошибки) — по нему интерфейс показывает
+    /// "ГОТОВ К ТРАНСЛЯЦИИ"; AudioEngine.IsRunning сам не уведомляет об изменении.
+    /// </summary>
+    public bool IsEngineRunning { get => _isEngineRunning; private set => SetProperty(ref _isEngineRunning, value); }
+
+    /// <summary>
+    /// Версия сборки для значка в шапке ("v1.0.48"). Берётся из той же сборки
+    /// и тем же способом, что и в проверке обновлений (UpdateCheckService),
+    /// поэтому всегда совпадает с версией, с которой сравниваются релизы.
+    /// </summary>
+    public string AppVersionText
+    {
+        get
+        {
+            Version version = Assembly.GetExecutingAssembly().GetName().Version ?? new Version(0, 0, 0, 0);
+            return $"v{version.Major}.{version.Minor}.{Math.Max(version.Build, 0)}";
+        }
+    }
+
     /// <summary>
     /// Этап B разбиения: работа с виртуальным драйвером вынесена в
     /// настоящий дочерний ViewModel (не просто в отдельный partial-файл, как
@@ -134,6 +158,25 @@ public sealed partial class MainViewModel : ViewModelBase, IDisposable
     /// </summary>
     public CalibrationViewModel Calibration { get; }
 
+    /// <summary>
+    /// Интеграция с OBS: применяет настройки DSP-цепочки к выбранному
+    /// источнику OBS через его встроенный сервер WebSocket. Снимок настроек
+    /// берётся делегатом BuildObsSnapshot в момент нажатия APPLY.
+    /// </summary>
+    public ObsViewModel Obs { get; }
+
+    // Потолок лимитера по умолчанию — тот же, что задаёт DspPipeline (-2 dBFS).
+    private const float DefaultLimiterCeilingDb = -2f;
+
+    private ObsDspSnapshot BuildObsSnapshot() => new(
+        Dsp.DenoiserEnabled,
+        Dsp.GateEnabled,
+        Dsp.CompEnabled,
+        Dsp.GateThresholdDb,
+        Dsp.CompressorThresholdDb,
+        Dsp.CompressorRatio,
+        _engine.Pipeline?.Lim.CeilingDb ?? DefaultLimiterCeilingDb);
+
     public MainViewModel()
     {
         Driver = new DriverViewModel(_driverInstaller, message => StatusMessage = message, ScheduleSettingsSave);
@@ -141,8 +184,13 @@ public sealed partial class MainViewModel : ViewModelBase, IDisposable
         Dsp = new DspViewModel(_engine, () => SelectedMonitorDevice, message => StatusMessage = message,
             ScheduleSettingsSave, () => _isLoadingSettings);
         Calibration = new CalibrationViewModel(_engine, Dsp, message => StatusMessage = message, ScheduleSettingsSave);
+        Obs = new ObsViewModel(new ObsService(), BuildObsSnapshot, ScheduleSettingsSave);
 
-        _engine.ErrorOccurred += (_, message) => StatusMessage = message;
+        _engine.ErrorOccurred += (_, message) =>
+        {
+            StatusMessage = message;
+            IsEngineRunning = false;
+        };
 
         // ВАЖНО: таймер debounce-сохранения должен существовать ДО того, как
         // ниже будут выставлены SelectedInputDevice/SelectedOutputDevice/
@@ -207,16 +255,22 @@ public sealed partial class MainViewModel : ViewModelBase, IDisposable
 
     private void RestartEngine()
     {
-        if (SelectedInputDevice == null || SelectedOutputDevice == null) return;
+        if (SelectedInputDevice == null || SelectedOutputDevice == null)
+        {
+            IsEngineRunning = false;
+            return;
+        }
 
         try
         {
             _engine.Start(SelectedInputDevice.Id, SelectedOutputDevice.Id);
             ApplyCurrentDspSettingsToPipeline();
             StatusMessage = null;
+            IsEngineRunning = _engine.IsRunning;
         }
         catch (Exception ex)
         {
+            IsEngineRunning = false;
             StatusMessage = $"Не удалось запустить обработку звука: {ex.Message}";
         }
     }

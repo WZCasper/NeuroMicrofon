@@ -78,6 +78,8 @@ public partial class MainViewModel
                 HotkeyAndUpdates.LoadHotkey(settings.HotkeyModifiers, settings.HotkeyVirtualKey);
             }
 
+            Obs.LoadSettings(settings.ObsHost, settings.ObsPort, settings.ObsSourceName);
+
             Driver.LoadPublishedDriverInfName(settings.PublishedDriverInfName);
             IsAutostartEnabled = settings.LaunchOnStartup;
         }
@@ -110,6 +112,9 @@ public partial class MainViewModel
             HotkeyModifiers = HotkeyAndUpdates.HotkeyModifierFlags,
             HotkeyVirtualKey = HotkeyAndUpdates.HotkeyVirtualKey,
             LaunchOnStartup = IsAutostartEnabled,
+            ObsHost = Obs.Host,
+            ObsPort = Obs.PortForSettings,
+            ObsSourceName = Obs.SelectedSourceNameForSettings,
             PublishedDriverInfName = Driver.PublishedDriverInfName,
             HasDspSettings = true,
             HasCalibrationResult = Calibration.HasCalibrationResult,

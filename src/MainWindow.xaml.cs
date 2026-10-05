@@ -173,6 +173,17 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// PasswordBox не поддерживает Binding на свойство Password напрямую (это
+    /// сознательное ограничение WPF ради безопасности — пароль не должен
+    /// оседать в биндинг-инфраструктуре/памяти дольше необходимого), поэтому
+    /// значение передаётся во ViewModel вручную при каждом изменении поля.
+    /// </summary>
+    private void ObsPasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
+    {
+        _viewModel.Obs.Password = ObsPasswordBox.Password;
+    }
+
     private void MainWindow_StateChanged(object? sender, EventArgs e)
     {
         if (WindowState == WindowState.Minimized)

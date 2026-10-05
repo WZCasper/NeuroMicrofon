@@ -74,6 +74,7 @@ public sealed class CalibrationViewModel : ViewModelBase
 
     public ICommand RecallCalibrationCommand { get; }
     public ICommand AutoTuneCommand { get; }
+    public ICommand CancelCommand { get; }
 
     public CalibrationViewModel(AudioEngine engine, DspViewModel dsp, Action<string?> setStatusMessage, Action scheduleSettingsSave)
     {
@@ -84,6 +85,24 @@ public sealed class CalibrationViewModel : ViewModelBase
 
         AutoTuneCommand = new RelayCommand(async () => await RunCalibrationAsync(), () => !IsCalibrating && _engine.IsRunning);
         RecallCalibrationCommand = new RelayCommand(RecallCalibration, () => HasCalibrationResult);
+        CancelCommand = new RelayCommand(CancelCalibration, () => IsCalibrating);
+    }
+
+    /// <summary>
+    /// Кнопка "Отмена" в окне автонастройки. Только запрашивает отмену —
+    /// освобождение токена остаётся за блоком finally в RunCalibrationAsync,
+    /// поэтому здесь нет гонки "Cancel против Dispose".
+    /// </summary>
+    private void CancelCalibration()
+    {
+        try
+        {
+            _calibrationCts?.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+            // Калибровка как раз завершилась и освободила токен — отменять уже нечего.
+        }
     }
 
     private void RecallCalibration()
@@ -182,6 +201,11 @@ public sealed class CalibrationViewModel : ViewModelBase
         catch (OperationCanceledException)
         {
             CalibrationInstruction = "Калибровка отменена.";
+
+            // К моменту отмены часть ползунков уже получила значения завершённых
+            // этапов, а подпись всё ещё говорила бы "Автонастройка выполняется...".
+            // Честная подпись: значения теперь не соответствуют ни пресету, ни калибровке.
+            _dsp.SetActivePresetLabel("Пользовательские настройки");
         }
         catch (Exception ex)
         {

@@ -22,6 +22,16 @@ public sealed class AppSettings
     public bool LaunchOnStartup { get; set; }
 
     /// <summary>
+    /// Параметры подключения к серверу WebSocket в OBS и последний выбранный
+    /// источник-микрофон. Пароль OBS здесь намеренно НЕТ — он не сохраняется
+    /// на диск (см. комментарий в ObsViewModel). Значения по умолчанию
+    /// подходят и для старых файлов настроек, где этих полей ещё не было.
+    /// </summary>
+    public string ObsHost { get; set; } = "127.0.0.1";
+    public int ObsPort { get; set; } = 4455;
+    public string? ObsSourceName { get; set; }
+
+    /// <summary>
     /// Модификаторы и виртуальный код клавиши выбранной горячей клавиши
     /// заглушки микрофона (см. Models.HotkeyOption/HotkeyModifiers).
     /// 0/0 означает "используется вариант по умолчанию".
