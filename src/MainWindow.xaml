@@ -265,7 +265,7 @@
                             <StackPanel>
                                 <Grid Margin="0,0,0,8">
                                     <TextBlock Text="ИНТЕЛЛЕКТУАЛЬНАЯ АВТОНАСТРОЙКА" Style="{StaticResource CardHeaderStyle}" Foreground="{StaticResource PurpleBrush}" HorizontalAlignment="Left"/>
-                                    <Border Background="#262A855F7" BorderBrush="#4DA855F7" BorderThickness="1" CornerRadius="4" Padding="6,2" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                    <Border Background="#26A855F7" BorderBrush="#4DA855F7" BorderThickness="1" CornerRadius="4" Padding="6,2" HorizontalAlignment="Right" VerticalAlignment="Center">
                                         <TextBlock Text="AI ASSIST" FontFamily="{StaticResource MonoFontFamily}" FontSize="9" Foreground="{StaticResource PurpleBrush}"/>
                                     </Border>
                                 </Grid>
@@ -480,7 +480,7 @@
                     HorizontalAlignment="Center" VerticalAlignment="Center"
                     Effect="{StaticResource ModalElevationEffect}">
                 <StackPanel>
-                    <Border Width="56" Height="56" CornerRadius="16" Background="#332A855F7" BorderBrush="{StaticResource PurpleBrush}"
+                    <Border Width="56" Height="56" CornerRadius="16" Background="#33A855F7" BorderBrush="{StaticResource PurpleBrush}"
                             BorderThickness="1" HorizontalAlignment="Center" Margin="0,0,0,14">
                         <TextBlock Text="⚡" FontSize="24" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
