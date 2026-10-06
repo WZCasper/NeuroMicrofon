@@ -42,6 +42,17 @@ public sealed class CalibrationViewModel : ViewModelBase
     private bool _isCalibrating;
     public bool IsCalibrating { get => _isCalibrating; private set => SetProperty(ref _isCalibrating, value); }
 
+    private int _currentStepNumber;
+    /// <summary>
+    /// Номер этапа (1-4), о котором сейчас отчитывается CalibrationEngine —
+    /// то же число, что уже встроено в начало CalibrationInstruction
+    /// ("2/4: ..."), но отдельным int, а не распарсенное из строки: по нему
+    /// список из 4 шагов в интерфейсе красит каждую строку (пройден/идёт
+    /// сейчас/ещё не начат) без хрупкого разбора текста. 0 — калибровка в
+    /// этой сессии ещё не запускалась.
+    /// </summary>
+    public int CurrentStepNumber { get => _currentStepNumber; private set => SetProperty(ref _currentStepNumber, value); }
+
     private double _calibrationProgress;
     public double CalibrationProgress { get => _calibrationProgress; private set => SetProperty(ref _calibrationProgress, value); }
 
@@ -105,6 +116,19 @@ public sealed class CalibrationViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// Вызывается при отмене/ошибке калибровки. CurrentStepNumber на этот
+    /// момент указывает на этап, который только НАЧАЛСЯ (его колбэк мог ни
+    /// разу не сработать) — без этой поправки список из 4 шагов в
+    /// интерфейсе показал бы этот прерванный этап как "пройден" (зелёная
+    /// галочка), хотя на самом деле он не завершился. Уменьшаем на 1, чтобы
+    /// пройденными считались только ДЕЙСТВИТЕЛЬНО завершённые этапы.
+    /// </summary>
+    private void RevertInterruptedStep()
+    {
+        if (CurrentStepNumber > 0) CurrentStepNumber -= 1;
+    }
+
     private void RecallCalibration()
     {
         if (!HasCalibrationResult) return;
@@ -131,6 +155,11 @@ public sealed class CalibrationViewModel : ViewModelBase
         if (wasMonitoring) _dsp.IsMonitoring = false;
 
         IsCalibrating = true;
+        // Сбрасываем до начала первого этапа — иначе при повторном запуске
+        // список шагов на мгновение показал бы все 4 строки "пройдено"
+        // (оставшиеся от прошлого успешного прогона) ещё до первого отчёта
+        // нового CalibrationEngine.
+        CurrentStepNumber = 0;
         _calibrationCts = new CancellationTokenSource();
         var calibrationEngine = new CalibrationEngine(_engine);
 
@@ -138,6 +167,7 @@ public sealed class CalibrationViewModel : ViewModelBase
         {
             CalibrationInstruction = $"{p.StepNumber}/4: {p.Instruction}";
             CalibrationProgress = p.OverallFraction * 100.0;
+            CurrentStepNumber = p.StepNumber;
         });
 
         try
@@ -206,10 +236,12 @@ public sealed class CalibrationViewModel : ViewModelBase
             // этапов, а подпись всё ещё говорила бы "Автонастройка выполняется...".
             // Честная подпись: значения теперь не соответствуют ни пресету, ни калибровке.
             _dsp.SetActivePresetLabel("Пользовательские настройки");
+            RevertInterruptedStep();
         }
         catch (Exception ex)
         {
             _setStatusMessage($"Ошибка калибровки: {ex.Message}");
+            RevertInterruptedStep();
         }
         finally
         {

@@ -96,6 +96,19 @@ public sealed partial class MainViewModel : ViewModelBase, IDisposable
     /// <summary>RMS-уровень "сырого" сигнала до всей DSP-цепочки (для индикатора входа).</summary>
     public double InputLevel { get => _inputLevel; private set => SetProperty(ref _inputLevel, value); }
 
+    /// <summary>Сколько последних отсчётов InputLevel хранит LevelHistory ниже (~33 мс × 48 ≈ 1.6 с).</summary>
+    public const int LevelHistoryLength = 48;
+
+    /// <summary>
+    /// Скользящее окно последних значений InputLevel (дБ) для визуализатора
+    /// активности сигнала — настоящая история реального входного уровня, а
+    /// не анимация. Заполнена LevelMeter.MinDb до первого тика движка, чтобы
+    /// визуализатор сразу был корректной длины (полоски нулевой высоты), а
+    /// не пустым до появления первых данных.
+    /// </summary>
+    public ObservableCollection<double> LevelHistory { get; } =
+        new(Enumerable.Repeat((double)LevelMeter.MinDb, LevelHistoryLength));
+
     private double _compressorGainReductionDb;
     public double CompressorGainReductionDb { get => _compressorGainReductionDb; private set => SetProperty(ref _compressorGainReductionDb, value); }
 
@@ -112,6 +125,16 @@ public sealed partial class MainViewModel : ViewModelBase, IDisposable
     /// "ГОТОВ К ТРАНСЛЯЦИИ"; AudioEngine.IsRunning сам не уведомляет об изменении.
     /// </summary>
     public bool IsEngineRunning { get => _isEngineRunning; private set => SetProperty(ref _isEngineRunning, value); }
+
+    /// <summary>
+    /// Реальные параметры аудиодвижка для значка в шапке — та же константа
+    /// частоты дискретизации, что видна на узле "Вывод" цепочки, и
+    /// настоящая длина буфера захвата WASAPI (не измеренная сквозная
+    /// задержка, а то, что действительно сконфигурировано — см. комментарий
+    /// к AudioEngine.CaptureBufferMilliseconds).
+    /// </summary>
+    public string AudioFormatText =>
+        $"{AudioEngine.InternalSampleRate / 1000} кГц · буфер ~{AudioEngine.CaptureBufferMilliseconds} мс";
 
     /// <summary>
     /// Версия сборки для значка в шапке ("v1.0.48"). Берётся из той же сборки
@@ -231,6 +254,10 @@ public sealed partial class MainViewModel : ViewModelBase, IDisposable
             InputLevel = _engine.RawRmsDb;
             CompressorGainReductionDb = _engine.Pipeline?.Comp.CurrentGainReductionDb ?? 0.0;
             LimiterGainReductionDb = _engine.Pipeline?.Lim.CurrentGainReductionDb ?? 0.0;
+
+            // Скользящее окно: убираем самый старый отсчёт, добавляем новый в конец.
+            LevelHistory.RemoveAt(0);
+            LevelHistory.Add(InputLevel);
         };
         _meterTimer.Start();
 

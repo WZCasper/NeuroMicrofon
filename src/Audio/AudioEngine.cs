@@ -27,6 +27,15 @@ public sealed class AudioEngine : IDisposable
 {
     public const int InternalSampleRate = 48000;
 
+    /// <summary>
+    /// Длина буфера захвата WASAPI в мс — используется и при создании
+    /// WasapiCapture ниже, и для честного отображения в интерфейсе (чтобы
+    /// показанное пользователю число не могло разойтись с тем, что реально
+    /// настроено). Это буфер ЗАХВАТА, а не измеренная сквозная задержка
+    /// "микрофон → виртуальный кабель" — интерфейс так и подписывает значение.
+    /// </summary>
+    public const int CaptureBufferMilliseconds = 20;
+
     private WasapiCapture? _capture;
     private WasapiOut? _output;
     private BufferedWaveProvider? _bufferedWaveProvider;
@@ -101,7 +110,7 @@ public sealed class AudioEngine : IDisposable
         {
             // Буфер 20 мс в общем режиме WASAPI — компромисс между низкой
             // задержкой (требование "< 20 мс") и устойчивостью к подгрузкам CPU.
-            _capture = new WasapiCapture(captureDevice, useEventSync: false, audioBufferMillisecondsLength: 20);
+            _capture = new WasapiCapture(captureDevice, useEventSync: false, audioBufferMillisecondsLength: CaptureBufferMilliseconds);
             _capture.DataAvailable += OnCaptureDataAvailable;
             _capture.RecordingStopped += OnRecordingStopped;
 

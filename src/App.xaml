@@ -46,6 +46,13 @@
                 <GradientStop Color="#FFA855F7" Offset="1"/>
             </LinearGradientBrush>
 
+            <!-- Столбики визуализатора реального уровня сигнала (снизу вверх: циан → фиолетовый). -->
+            <LinearGradientBrush x:Key="LevelHistoryBarBrush" StartPoint="0,1" EndPoint="0,0">
+                <GradientStop Color="#FF00F2FE" Offset="0"/>
+                <GradientStop Color="#FF00F2FE" Offset="0.6"/>
+                <GradientStop Color="#FFA855F7" Offset="1"/>
+            </LinearGradientBrush>
+
             <LinearGradientBrush x:Key="LogoGradientBrush" StartPoint="0,0" EndPoint="1,1">
                 <GradientStop Color="#FF22D3EE" Offset="0"/>
                 <GradientStop Color="#FF6366F1" Offset="0.5"/>
@@ -80,6 +87,8 @@
             <conv:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
             <conv:GainReductionToPercentConverter x:Key="GainReductionToPercentConverter"/>
             <conv:PresetActiveConverter x:Key="PresetActiveConverter"/>
+            <conv:CalibrationStepStateConverter x:Key="CalibrationStepStateConverter"/>
+            <conv:DbLevelToBarHeightConverter x:Key="DbLevelToBarHeightConverter"/>
             <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
 
             <!-- ===================== Базовые стили ===================== -->

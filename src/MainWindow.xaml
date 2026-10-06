@@ -3,13 +3,14 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:NeuroMicrophone.Controls"
         Title="NeuroMicrophone"
-        Height="1000" Width="1080"
-        MinHeight="760" MinWidth="940"
+        Height="1040" Width="1120"
+        MinHeight="780" MinWidth="960"
         WindowStartupLocation="CenterScreen">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <!-- ===================== Заголовок ===================== -->
@@ -22,7 +23,14 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0" Orientation="Horizontal">
-                    <Border Width="42" Height="42" CornerRadius="10" Background="{StaticResource LogoGradientBrush}" Margin="0,0,12,0"/>
+                    <Grid Margin="0,0,12,0">
+                        <Border Width="42" Height="42" CornerRadius="10" Background="{StaticResource LogoGradientBrush}">
+                            <TextBlock Text="🎙" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <Ellipse Style="{StaticResource PulseDotStyle}" Width="10" Height="10" Fill="{StaticResource SuccessBrush}"
+                                 Stroke="{StaticResource HeaderFooterBrush}" StrokeThickness="2"
+                                 HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-2,-2,0"/>
+                    </Grid>
                     <StackPanel VerticalAlignment="Center">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="NEUROMICROPHONE" FontSize="17" FontWeight="Black" FontFamily="{StaticResource MonoFontFamily}"/>
@@ -34,24 +42,27 @@
                                 <TextBlock Text="{Binding AppVersionText}" FontFamily="{StaticResource MonoFontFamily}" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
                             </Border>
                         </StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
-                            <Ellipse Style="{StaticResource PulseDotStyle}" Fill="{StaticResource SuccessBrush}" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="RNNoise AI Audio Processing Engine" Style="{StaticResource MonoLabelStyle}"/>
-                        </StackPanel>
+                        <TextBlock Text="RNNoise AI Audio Processing Engine" Style="{StaticResource MonoLabelStyle}" Margin="0,3,0,0"/>
                     </StackPanel>
                 </StackPanel>
 
-                <ToggleButton Grid.Column="1" Style="{StaticResource MutePillToggleStyle}" IsChecked="{Binding Dsp.IsMuted}">
-                    <StackPanel Orientation="Horizontal">
-                        <Grid Margin="0,0,10,0">
-                            <TextBlock Text="МИКРОФОН АКТИВЕН" Visibility="{Binding Dsp.IsMuted, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
-                            <TextBlock Text="МИКРОФОН ЗАГЛУШЕН" Foreground="{StaticResource DangerBrush}" Visibility="{Binding Dsp.IsMuted, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                        </Grid>
-                        <Border Background="{StaticResource SurfaceAltBrush}" CornerRadius="4" Padding="6,3">
-                            <TextBlock Text="{Binding HotkeyAndUpdates.HotkeyDisplayText}" FontFamily="{StaticResource MonoFontFamily}" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
-                        </Border>
-                    </StackPanel>
-                </ToggleButton>
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Border Background="{StaticResource SurfaceAltBrush}" BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1"
+                            CornerRadius="6" Padding="10,5" Margin="0,0,10,0" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding AudioFormatText}" FontFamily="{StaticResource MonoFontFamily}" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
+                    </Border>
+                    <ToggleButton Style="{StaticResource MutePillToggleStyle}" IsChecked="{Binding Dsp.IsMuted}">
+                        <StackPanel Orientation="Horizontal">
+                            <Grid Margin="0,0,10,0">
+                                <TextBlock Text="МИКРОФОН АКТИВЕН" Visibility="{Binding Dsp.IsMuted, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                                <TextBlock Text="МИКРОФОН ЗАГЛУШЕН" Foreground="{StaticResource DangerBrush}" Visibility="{Binding Dsp.IsMuted, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                            </Grid>
+                            <Border Background="{StaticResource SurfaceAltBrush}" CornerRadius="4" Padding="6,3">
+                                <TextBlock Text="{Binding HotkeyAndUpdates.HotkeyDisplayText}" FontFamily="{StaticResource MonoFontFamily}" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            </Border>
+                        </StackPanel>
+                    </ToggleButton>
+                </StackPanel>
             </Grid>
         </Border>
 
@@ -59,13 +70,11 @@
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="20">
 
-                <!-- Статус / ошибки -->
                 <Border Background="{StaticResource SurfaceBrush}" CornerRadius="8" Padding="12" Margin="0,0,0,12"
                         Visibility="{Binding StatusMessage, Converter={StaticResource NullToVisibilityConverter}}">
                     <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource DangerBrush}" TextWrapping="Wrap"/>
                 </Border>
 
-                <!-- Доступно обновление -->
                 <Border Background="{StaticResource SurfaceBrush}" CornerRadius="8" Padding="12" Margin="0,0,0,12"
                         Visibility="{Binding HotkeyAndUpdates.UpdateAvailableMessage, Converter={StaticResource NullToVisibilityConverter}}">
                     <Grid>
@@ -80,7 +89,7 @@
                     </Grid>
                 </Border>
 
-                <!-- ===================== Цепочка обработки DSP ===================== -->
+                <!-- ===================== 1. Цепочка обработки DSP (живые значения) ===================== -->
                 <Border Style="{StaticResource CardBorderStyle}" Margin="0,0,0,16">
                     <StackPanel>
                         <Grid Margin="0,0,0,10">
@@ -90,51 +99,116 @@
                         <UniformGrid Columns="6" Rows="1">
                             <ToggleButton Style="{StaticResource PipelineNodeToggleStyle}" IsChecked="{Binding Dsp.DenoiserEnabled}" Margin="3">
                                 <StackPanel Margin="10,8">
-                                    <TextBlock Text="01 · ПОДАВЛЕНИЕ" Style="{StaticResource MonoLabelStyle}" FontSize="8"/>
+                                    <Grid>
+                                        <TextBlock Text="01 · ПОДАВЛЕНИЕ" Style="{StaticResource MonoLabelStyle}" FontSize="8" HorizontalAlignment="Left"/>
+                                        <Ellipse Width="7" Height="7" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                            <Ellipse.Style>
+                                                <Style TargetType="Ellipse">
+                                                    <Setter Property="Fill" Value="{StaticResource TextMutedBrush}"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource AncestorType=ToggleButton}}" Value="True">
+                                                            <Setter Property="Fill" Value="{StaticResource AccentBrush}"/>
+                                                            <Setter Property="Effect" Value="{StaticResource CyanGlowEffect}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Ellipse.Style>
+                                        </Ellipse>
+                                    </Grid>
                                     <TextBlock Text="RNNoise AI" FontWeight="Bold" FontSize="12" Margin="0,5,0,1"/>
-                                    <TextBlock Text="Нейросеть" Style="{StaticResource MonoLabelStyle}" FontSize="9"/>
+                                    <TextBlock Text="{Binding Dsp.DenoiserWetMix, StringFormat={}{0:P0}}" FontFamily="{StaticResource MonoFontFamily}" FontSize="10" Foreground="{StaticResource AccentBrush}"/>
                                 </StackPanel>
                             </ToggleButton>
                             <ToggleButton Style="{StaticResource PipelineNodeToggleStyle}" IsChecked="{Binding Dsp.GateEnabled}" Margin="3">
                                 <StackPanel Margin="10,8">
-                                    <TextBlock Text="02 · ГЕЙТ" Style="{StaticResource MonoLabelStyle}" FontSize="8"/>
+                                    <Grid>
+                                        <TextBlock Text="02 · ГЕЙТ" Style="{StaticResource MonoLabelStyle}" FontSize="8" HorizontalAlignment="Left"/>
+                                        <Ellipse Width="7" Height="7" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                            <Ellipse.Style>
+                                                <Style TargetType="Ellipse">
+                                                    <Setter Property="Fill" Value="{StaticResource TextMutedBrush}"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource AncestorType=ToggleButton}}" Value="True">
+                                                            <Setter Property="Fill" Value="{StaticResource AccentBrush}"/>
+                                                            <Setter Property="Effect" Value="{StaticResource CyanGlowEffect}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Ellipse.Style>
+                                        </Ellipse>
+                                    </Grid>
                                     <TextBlock Text="Шумовой гейт" FontWeight="Bold" FontSize="12" Margin="0,5,0,1"/>
-                                    <TextBlock Text="Отсечка паузы" Style="{StaticResource MonoLabelStyle}" FontSize="9"/>
+                                    <TextBlock Text="{Binding Dsp.GateThresholdDb, StringFormat={}{0:F0} дБ}" FontFamily="{StaticResource MonoFontFamily}" FontSize="10" Foreground="{StaticResource AccentBrush}"/>
                                 </StackPanel>
                             </ToggleButton>
                             <ToggleButton Style="{StaticResource PipelineNodeToggleStyle}" IsChecked="{Binding Dsp.AgcEnabled}" Margin="3">
                                 <StackPanel Margin="10,8">
-                                    <TextBlock Text="03 · АВТОУСИЛЕНИЕ" Style="{StaticResource MonoLabelStyle}" FontSize="8"/>
+                                    <Grid>
+                                        <TextBlock Text="03 · АВТОУСИЛЕНИЕ" Style="{StaticResource MonoLabelStyle}" FontSize="8" HorizontalAlignment="Left"/>
+                                        <Ellipse Width="7" Height="7" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                            <Ellipse.Style>
+                                                <Style TargetType="Ellipse">
+                                                    <Setter Property="Fill" Value="{StaticResource TextMutedBrush}"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource AncestorType=ToggleButton}}" Value="True">
+                                                            <Setter Property="Fill" Value="{StaticResource AccentBrush}"/>
+                                                            <Setter Property="Effect" Value="{StaticResource CyanGlowEffect}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Ellipse.Style>
+                                        </Ellipse>
+                                    </Grid>
                                     <TextBlock Text="AGC" FontWeight="Bold" FontSize="12" Margin="0,5,0,1"/>
-                                    <TextBlock Text="Автоусиление" Style="{StaticResource MonoLabelStyle}" FontSize="9"/>
+                                    <TextBlock Text="{Binding Dsp.AgcTargetLevelDb, StringFormat={}{0:F0} дБFS}" FontFamily="{StaticResource MonoFontFamily}" FontSize="10" Foreground="{StaticResource AccentBrush}"/>
                                 </StackPanel>
                             </ToggleButton>
                             <ToggleButton Style="{StaticResource PipelineNodeToggleStyle}" IsChecked="{Binding Dsp.CompEnabled}" Margin="3">
                                 <StackPanel Margin="10,8">
-                                    <TextBlock Text="04 · ДИНАМИКА" Style="{StaticResource MonoLabelStyle}" FontSize="8"/>
+                                    <Grid>
+                                        <TextBlock Text="04 · ДИНАМИКА" Style="{StaticResource MonoLabelStyle}" FontSize="8" HorizontalAlignment="Left"/>
+                                        <Ellipse Width="7" Height="7" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                            <Ellipse.Style>
+                                                <Style TargetType="Ellipse">
+                                                    <Setter Property="Fill" Value="{StaticResource TextMutedBrush}"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource AncestorType=ToggleButton}}" Value="True">
+                                                            <Setter Property="Fill" Value="{StaticResource AccentBrush}"/>
+                                                            <Setter Property="Effect" Value="{StaticResource CyanGlowEffect}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Ellipse.Style>
+                                        </Ellipse>
+                                    </Grid>
                                     <TextBlock Text="Компрессор" FontWeight="Bold" FontSize="12" Margin="0,5,0,1"/>
-                                    <TextBlock Text="Сглаживание пиков" Style="{StaticResource MonoLabelStyle}" FontSize="9"/>
+                                    <TextBlock Text="{Binding Dsp.CompressorRatio, StringFormat={}{0:F1}:1}" FontFamily="{StaticResource MonoFontFamily}" FontSize="10" Foreground="{StaticResource AccentBrush}"/>
                                 </StackPanel>
                             </ToggleButton>
                             <Border Background="{StaticResource SurfaceLightBrush}" BorderBrush="{StaticResource AccentDimBrush}" BorderThickness="1" CornerRadius="10" Margin="3" Padding="10,8">
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="05 · ЗАЩИТА" Style="{StaticResource MonoLabelStyle}" FontSize="8"/>
                                     <TextBlock Text="Лимитер" FontWeight="Bold" FontSize="12" Foreground="{StaticResource AccentBrush}" Margin="0,5,0,1"/>
-                                    <TextBlock Text="-2 дБ потолок" Style="{StaticResource MonoLabelStyle}" FontSize="9"/>
+                                    <TextBlock Text="-2.0 дБ потолок" FontFamily="{StaticResource MonoFontFamily}" FontSize="10" Foreground="{StaticResource AccentBrush}"/>
                                 </StackPanel>
                             </Border>
                             <Border Background="#1AA855F7" BorderBrush="#40A855F7" BorderThickness="1" CornerRadius="10" Margin="3" Padding="10,8">
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="06 · ВЫВОД" Style="{StaticResource MonoLabelStyle}" FontSize="8" Foreground="{StaticResource PurpleBrush}"/>
                                     <TextBlock Text="Вирт. кабель" FontWeight="Bold" FontSize="12" Foreground="{StaticResource PurpleBrush}" Margin="0,5,0,1"/>
-                                    <TextBlock Text="48 кГц" Style="{StaticResource MonoLabelStyle}" FontSize="9"/>
+                                    <Grid>
+                                        <TextBlock Text="✓ готово" FontFamily="{StaticResource MonoFontFamily}" FontSize="10" Foreground="{StaticResource SuccessBrush}"
+                                                   Visibility="{Binding Driver.IsDriverInstalled, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                        <TextBlock Text="не найден" FontFamily="{StaticResource MonoFontFamily}" FontSize="10" Foreground="{StaticResource DangerBrush}"
+                                                   Visibility="{Binding Driver.IsDriverInstalled, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                                    </Grid>
                                 </StackPanel>
                             </Border>
                         </UniformGrid>
                     </StackPanel>
                 </Border>
 
-                <!-- ===================== Две колонки ===================== -->
+                <!-- ===================== 2. Маршрутизация + визуализатор ===================== -->
                 <Grid Margin="0,0,0,16">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="5*"/>
@@ -142,12 +216,17 @@
                         <ColumnDefinition Width="7*"/>
                     </Grid.ColumnDefinitions>
 
-                    <!-- ЛЕВАЯ КОЛОНКА: маршрутизация, OBS, калибровка -->
+                    <!-- ЛЕВАЯ КОЛОНКА -->
                     <StackPanel Grid.Column="0">
 
                         <Border Style="{StaticResource CardBorderStyle}" Margin="0,0,0,16">
                             <StackPanel>
-                                <TextBlock Text="МАРШРУТИЗАЦИЯ УСТРОЙСТВ" Style="{StaticResource CardHeaderStyle}" Margin="0,0,0,12"/>
+                                <Grid Margin="0,0,0,12">
+                                    <TextBlock Text="МАРШРУТИЗАЦИЯ УСТРОЙСТВ" Style="{StaticResource CardHeaderStyle}" HorizontalAlignment="Left"/>
+                                    <Border Style="{StaticResource BadgeBorderStyle}" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                        <TextBlock Text="WASAPI" Style="{StaticResource BadgeTextStyle}"/>
+                                    </Border>
+                                </Grid>
 
                                 <TextBlock Text="Физический вход (микрофон)" Style="{StaticResource MonoLabelStyle}" Margin="0,0,0,4"/>
                                 <ComboBox ItemsSource="{Binding InputDevices}" SelectedItem="{Binding SelectedInputDevice}" Margin="0,0,0,12"/>
@@ -164,7 +243,7 @@
                                 <ComboBox Style="{StaticResource AccentComboBoxStyle}" ItemsSource="{Binding OutputDevices}" SelectedItem="{Binding SelectedOutputDevice}" Margin="0,0,0,14"/>
 
                                 <Grid Margin="0,0,0,4">
-                                    <TextBlock Text="Прослушать себя" Style="{StaticResource MonoLabelStyle}" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Прослушать себя (Direct Monitor)" Style="{StaticResource MonoLabelStyle}" HorizontalAlignment="Left" VerticalAlignment="Center"/>
                                     <ToggleButton HorizontalAlignment="Right" Style="{StaticResource MutePillToggleStyle}" Padding="10,4" IsChecked="{Binding Dsp.IsMonitoring}">
                                         <Grid>
                                             <TextBlock Text="ВЫКЛ" FontSize="10" Visibility="{Binding Dsp.IsMonitoring, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
@@ -177,7 +256,8 @@
                             </StackPanel>
                         </Border>
 
-                        <Border Background="{StaticResource SurfaceBrush}" CornerRadius="8" Padding="12" Margin="0,0,0,16"
+                        <!-- Кабель НЕ найден -->
+                        <Border Background="{StaticResource SurfaceBrush}" CornerRadius="12" Padding="16" Margin="0,0,0,16"
                                 Visibility="{Binding Driver.IsDriverInstalled, Converter={StaticResource InverseBoolToVisibilityConverter}}">
                             <StackPanel>
                                 <TextBlock TextWrapping="Wrap" Style="{StaticResource MonoLabelStyle}" Foreground="{StaticResource DangerBrush}" Margin="0,0,0,10">
@@ -195,8 +275,21 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- Кабель найден -->
+                        <Border Background="#1400F2FE" BorderBrush="{StaticResource AccentDimBrush}" BorderThickness="1" CornerRadius="12" Padding="16" Margin="0,0,0,16"
+                                Visibility="{Binding Driver.IsDriverInstalled, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <StackPanel>
+                                <TextBlock Text="✓ Виртуальный аудиокабель подключён" FontWeight="Bold" FontSize="12" Foreground="{StaticResource AccentBrush}" Margin="0,0,0,6"/>
+                                <TextBlock TextWrapping="Wrap" Style="{StaticResource MonoLabelStyle}" FontSize="10" Margin="0,0,0,10">
+                                    Для трансляции обработанного звука выберите его как микрофон в Discord, Zoom, Skype или OBS.
+                                </TextBlock>
+                                <Button Content="УДАЛИТЬ ДРАЙВЕР" Style="{StaticResource DangerGhostButtonStyle}" HorizontalAlignment="Left"
+                                        Command="{Binding Driver.UninstallDriverCommand}"/>
+                            </StackPanel>
+                        </Border>
+
                         <!-- ===================== Интеграция с OBS ===================== -->
-                        <Border Style="{StaticResource CardBorderStyle}" Margin="0,0,0,16">
+                        <Border Style="{StaticResource CardBorderStyle}">
                             <StackPanel>
                                 <Grid Margin="0,0,0,10">
                                     <TextBlock Text="ИНТЕГРАЦИЯ С OBS" Style="{StaticResource CardHeaderStyle}" HorizontalAlignment="Left"/>
@@ -259,48 +352,39 @@
                                         Command="{Binding Obs.ApplyCommand}"/>
                             </StackPanel>
                         </Border>
-
-                        <Border Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource IndigoBrush}" BorderThickness="1"
-                                CornerRadius="12" Padding="16">
-                            <StackPanel>
-                                <Grid Margin="0,0,0,8">
-                                    <TextBlock Text="ИНТЕЛЛЕКТУАЛЬНАЯ АВТОНАСТРОЙКА" Style="{StaticResource CardHeaderStyle}" Foreground="{StaticResource PurpleBrush}" HorizontalAlignment="Left"/>
-                                    <Border Background="#26A855F7" BorderBrush="#4DA855F7" BorderThickness="1" CornerRadius="4" Padding="6,2" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                        <TextBlock Text="AI ASSIST" FontFamily="{StaticResource MonoFontFamily}" FontSize="9" Foreground="{StaticResource PurpleBrush}"/>
-                                    </Border>
-                                </Grid>
-                                <TextBlock TextWrapping="Wrap" Style="{StaticResource SecondaryTextStyle}" Margin="0,0,0,12">
-                                    4 этапа по 5 секунд: фоновый шум, обычная речь, громкая речь, стук по клавиатуре/мышке — параметры подбираются автоматически.
-                                </TextBlock>
-                                <Button Content="АВТОНАСТРОЙКА (20 СЕК)" Style="{StaticResource CalibrationButtonStyle}"
-                                        Command="{Binding Calibration.AutoTuneCommand}" HorizontalAlignment="Stretch" Margin="0,0,0,12"/>
-
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0">
-                                        <TextBlock Text="СТАТУС" Style="{StaticResource MonoLabelStyle}" FontSize="9"/>
-                                        <TextBlock Text="{Binding Calibration.CalibrationInstruction}" TextWrapping="Wrap" FontFamily="{StaticResource MonoFontFamily}"
-                                                   FontSize="11" Foreground="{StaticResource AccentBrush}" Margin="0,2,0,0"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="1" Visibility="{Binding Calibration.HasKeyboardNoisePeak, Converter={StaticResource BoolToVisibilityConverter}}">
-                                        <TextBlock Text="ПИК ЩЕЛЧКОВ" Style="{StaticResource MonoLabelStyle}" FontSize="9" HorizontalAlignment="Right"/>
-                                        <TextBlock Text="{Binding Calibration.KeyboardNoisePeakDb, StringFormat={}{0:F0} дБ}" FontFamily="{StaticResource MonoFontFamily}"
-                                                   FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right" Margin="0,2,0,0"/>
-                                    </StackPanel>
-                                </Grid>
-                            </StackPanel>
-                        </Border>
                     </StackPanel>
 
-                    <!-- ПРАВАЯ КОЛОНКА: индикаторы уровней и тонкая настройка -->
+                    <!-- ПРАВАЯ КОЛОНКА: визуализатор и уровни -->
                     <StackPanel Grid.Column="2">
 
                         <Border Style="{StaticResource CardBorderStyle}" Margin="0,0,0,16">
                             <StackPanel>
-                                <TextBlock Text="УРОВНИ СИГНАЛА" Style="{StaticResource CardHeaderStyle}" Margin="0,0,0,14"/>
+                                <Grid Margin="0,0,0,12">
+                                    <TextBlock Text="УРОВНИ СИГНАЛА" Style="{StaticResource CardHeaderStyle}" HorizontalAlignment="Left"/>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                                                Visibility="{Binding IsEngineRunning, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <Ellipse Style="{StaticResource PulseDotStyle}" Fill="{StaticResource SuccessBrush}" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="LIVE" FontFamily="{StaticResource MonoFontFamily}" FontSize="9" FontWeight="Bold" Foreground="{StaticResource SuccessBrush}"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <Border Background="{StaticResource SurfaceAltBrush}" BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1"
+                                        CornerRadius="8" Padding="2" Height="96" Margin="0,0,0,16">
+                                    <ItemsControl ItemsSource="{Binding LevelHistory}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <UniformGrid Rows="1"/>
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Margin="1,0,0,0" VerticalAlignment="Bottom" CornerRadius="1.5,1.5,0,0"
+                                                        Background="{StaticResource LevelHistoryBarBrush}"
+                                                        Height="{Binding Converter={StaticResource DbLevelToBarHeightConverter}, ConverterParameter=90}"/>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Border>
 
                                 <Grid Margin="0,0,0,4">
                                     <TextBlock Text="ВХОД" Style="{StaticResource MonoLabelStyle}" HorizontalAlignment="Left"/>
@@ -332,111 +416,319 @@
                                 <controls:LedMeter LevelDb="{Binding LimiterGainReductionDb}" IsGainReduction="True" SegmentCount="18"/>
                             </StackPanel>
                         </Border>
-
-                        <Border Style="{StaticResource CardBorderStyle}">
-                            <StackPanel>
-                                <Grid Margin="0,0,0,14">
-                                    <TextBlock Text="ТОНКАЯ НАСТРОЙКА DSP" Style="{StaticResource CardHeaderStyle}" HorizontalAlignment="Left"/>
-                                    <TextBlock Text="{Binding Dsp.ActivePresetLabel}" Style="{StaticResource MonoLabelStyle}" FontSize="10" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
-                                </Grid>
-
-                                <Grid Margin="0,0,0,4">
-                                    <TextBlock Text="СРЕЗ НИЗКИХ ЧАСТОТ" Style="{StaticResource MonoLabelStyle}" HorizontalAlignment="Left"/>
-                                    <TextBlock Text="{Binding Dsp.HighPassCutoffHz, StringFormat={}{0:F0} Гц}" Style="{StaticResource MonoLabelStyle}" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
-                                </Grid>
-                                <Slider Minimum="40" Maximum="200" Value="{Binding Dsp.HighPassCutoffHz}" Margin="0,0,0,14"/>
-
-                                <Grid Margin="0,0,0,4">
-                                    <TextBlock Text="ПОРОГ ШУМОВОГО ГЕЙТА" Style="{StaticResource MonoLabelStyle}" HorizontalAlignment="Left"/>
-                                    <TextBlock Text="{Binding Dsp.GateThresholdDb, StringFormat={}{0:F0} дБ}" Style="{StaticResource MonoLabelStyle}" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
-                                </Grid>
-                                <Slider Minimum="-70" Maximum="-20" Value="{Binding Dsp.GateThresholdDb}" Margin="0,0,0,14"/>
-
-                                <Grid Margin="0,0,0,4">
-                                    <TextBlock Text="СИЛА ШУМОПОДАВЛЕНИЯ" Style="{StaticResource MonoLabelStyle}" HorizontalAlignment="Left"/>
-                                    <TextBlock Text="{Binding Dsp.DenoiserWetMix, StringFormat={}{0:P0}}" Style="{StaticResource MonoLabelStyle}" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
-                                </Grid>
-                                <Slider Minimum="0" Maximum="1" Value="{Binding Dsp.DenoiserWetMix}" Margin="0,0,0,14"/>
-
-                                <Grid Margin="0,0,0,4">
-                                    <TextBlock Text="ЦЕЛЕВОЙ УРОВЕНЬ AGC" Style="{StaticResource MonoLabelStyle}" HorizontalAlignment="Left"/>
-                                    <TextBlock Text="{Binding Dsp.AgcTargetLevelDb, StringFormat={}{0:F0} дБFS}" Style="{StaticResource MonoLabelStyle}" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
-                                </Grid>
-                                <Slider Minimum="-30" Maximum="-6" Value="{Binding Dsp.AgcTargetLevelDb}" Margin="0,0,0,14"/>
-
-                                <Grid Margin="0,0,0,4">
-                                    <TextBlock Text="ПОРОГ КОМПРЕССОРА" Style="{StaticResource MonoLabelStyle}" HorizontalAlignment="Left"/>
-                                    <TextBlock Text="{Binding Dsp.CompressorThresholdDb, StringFormat={}{0:F0} дБFS}" Style="{StaticResource MonoLabelStyle}" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
-                                </Grid>
-                                <Slider Minimum="-30" Maximum="0" Value="{Binding Dsp.CompressorThresholdDb}" Margin="0,0,0,14"/>
-
-                                <Grid Margin="0,0,0,4">
-                                    <TextBlock Text="КОЭФФИЦИЕНТ КОМПРЕССОРА" Style="{StaticResource MonoLabelStyle}" HorizontalAlignment="Left"/>
-                                    <TextBlock Text="{Binding Dsp.CompressorRatio, StringFormat={}{0:F1}:1}" Style="{StaticResource MonoLabelStyle}" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
-                                </Grid>
-                                <Slider Minimum="1" Maximum="10" Value="{Binding Dsp.CompressorRatio}"/>
-                            </StackPanel>
-                        </Border>
                     </StackPanel>
                 </Grid>
 
-                <!-- ===================== Пресеты (полная ширина) ===================== -->
+                <!-- ===================== 3. Автонастройка + тонкая настройка ===================== -->
+                <Grid Margin="0,0,0,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="4*"/>
+                        <ColumnDefinition Width="16"/>
+                        <ColumnDefinition Width="8*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- ЛЕВАЯ КОЛОНКА: мастер автонастройки -->
+                    <Border Grid.Column="0" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource IndigoBrush}" BorderThickness="1"
+                            CornerRadius="12" Padding="16">
+                        <StackPanel>
+                            <Grid Margin="0,0,0,10">
+                                <TextBlock Text="ИНТЕЛЛЕКТУАЛЬНАЯ АВТОНАСТРОЙКА" Style="{StaticResource CardHeaderStyle}" Foreground="{StaticResource PurpleBrush}" HorizontalAlignment="Left"/>
+                                <Border Background="#26A855F7" BorderBrush="#4DA855F7" BorderThickness="1" CornerRadius="4" Padding="6,2" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                    <TextBlock Text="AI WIZARD" FontFamily="{StaticResource MonoFontFamily}" FontSize="9" Foreground="{StaticResource PurpleBrush}"/>
+                                </Border>
+                            </Grid>
+                            <TextBlock TextWrapping="Wrap" Style="{StaticResource SecondaryTextStyle}" Margin="0,0,0,12">
+                                4 этапа по 5 секунд: фоновый шум, обычная речь, громкая речь, стук по клавиатуре/мышке — параметры подбираются автоматически.
+                            </TextBlock>
+
+                            <Border Background="{StaticResource SurfaceAltBrush}" BorderBrush="{StaticResource BorderBrush2}"
+                                    BorderThickness="1" CornerRadius="8" Padding="10,8" Margin="0,0,0,6">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="1. Анализ фонового шума" FontFamily="{StaticResource MonoFontFamily}"
+                                               FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="1" FontFamily="{StaticResource MonoFontFamily}" FontWeight="Bold" FontSize="13" VerticalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Text" Value="○"/>
+                                                <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Value="active">
+                                                        <DataTrigger.Binding>
+                                                            <MultiBinding Converter="{StaticResource CalibrationStepStateConverter}" ConverterParameter="1">
+                                                                <Binding Path="Calibration.CurrentStepNumber"/>
+                                                                <Binding Path="Calibration.IsCalibrating"/>
+                                                            </MultiBinding>
+                                                        </DataTrigger.Binding>
+                                                        <Setter Property="Text" Value="●"/>
+                                                        <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Value="done">
+                                                        <DataTrigger.Binding>
+                                                            <MultiBinding Converter="{StaticResource CalibrationStepStateConverter}" ConverterParameter="1">
+                                                                <Binding Path="Calibration.CurrentStepNumber"/>
+                                                                <Binding Path="Calibration.IsCalibrating"/>
+                                                            </MultiBinding>
+                                                        </DataTrigger.Binding>
+                                                        <Setter Property="Text" Value="✓"/>
+                                                        <Setter Property="Foreground" Value="{StaticResource SuccessBrush}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Grid>
+                            </Border>
+                            <Border Background="{StaticResource SurfaceAltBrush}" BorderBrush="{StaticResource BorderBrush2}"
+                                    BorderThickness="1" CornerRadius="8" Padding="10,8" Margin="0,0,0,6">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="2. Уровень обычной речи" FontFamily="{StaticResource MonoFontFamily}"
+                                               FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="1" FontFamily="{StaticResource MonoFontFamily}" FontWeight="Bold" FontSize="13" VerticalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Text" Value="○"/>
+                                                <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Value="active">
+                                                        <DataTrigger.Binding>
+                                                            <MultiBinding Converter="{StaticResource CalibrationStepStateConverter}" ConverterParameter="2">
+                                                                <Binding Path="Calibration.CurrentStepNumber"/>
+                                                                <Binding Path="Calibration.IsCalibrating"/>
+                                                            </MultiBinding>
+                                                        </DataTrigger.Binding>
+                                                        <Setter Property="Text" Value="●"/>
+                                                        <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Value="done">
+                                                        <DataTrigger.Binding>
+                                                            <MultiBinding Converter="{StaticResource CalibrationStepStateConverter}" ConverterParameter="2">
+                                                                <Binding Path="Calibration.CurrentStepNumber"/>
+                                                                <Binding Path="Calibration.IsCalibrating"/>
+                                                            </MultiBinding>
+                                                        </DataTrigger.Binding>
+                                                        <Setter Property="Text" Value="✓"/>
+                                                        <Setter Property="Foreground" Value="{StaticResource SuccessBrush}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Grid>
+                            </Border>
+                            <Border Background="{StaticResource SurfaceAltBrush}" BorderBrush="{StaticResource BorderBrush2}"
+                                    BorderThickness="1" CornerRadius="8" Padding="10,8" Margin="0,0,0,6">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="3. Уровень громкой речи" FontFamily="{StaticResource MonoFontFamily}"
+                                               FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="1" FontFamily="{StaticResource MonoFontFamily}" FontWeight="Bold" FontSize="13" VerticalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Text" Value="○"/>
+                                                <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Value="active">
+                                                        <DataTrigger.Binding>
+                                                            <MultiBinding Converter="{StaticResource CalibrationStepStateConverter}" ConverterParameter="3">
+                                                                <Binding Path="Calibration.CurrentStepNumber"/>
+                                                                <Binding Path="Calibration.IsCalibrating"/>
+                                                            </MultiBinding>
+                                                        </DataTrigger.Binding>
+                                                        <Setter Property="Text" Value="●"/>
+                                                        <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Value="done">
+                                                        <DataTrigger.Binding>
+                                                            <MultiBinding Converter="{StaticResource CalibrationStepStateConverter}" ConverterParameter="3">
+                                                                <Binding Path="Calibration.CurrentStepNumber"/>
+                                                                <Binding Path="Calibration.IsCalibrating"/>
+                                                            </MultiBinding>
+                                                        </DataTrigger.Binding>
+                                                        <Setter Property="Text" Value="✓"/>
+                                                        <Setter Property="Foreground" Value="{StaticResource SuccessBrush}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Grid>
+                            </Border>
+                            <Border Background="{StaticResource SurfaceAltBrush}" BorderBrush="{StaticResource BorderBrush2}"
+                                    BorderThickness="1" CornerRadius="8" Padding="10,8" Margin="0,0,0,6">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="4. Щелчки клавиатуры/мыши" FontFamily="{StaticResource MonoFontFamily}"
+                                               FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="1" FontFamily="{StaticResource MonoFontFamily}" FontWeight="Bold" FontSize="13" VerticalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Text" Value="○"/>
+                                                <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Value="active">
+                                                        <DataTrigger.Binding>
+                                                            <MultiBinding Converter="{StaticResource CalibrationStepStateConverter}" ConverterParameter="4">
+                                                                <Binding Path="Calibration.CurrentStepNumber"/>
+                                                                <Binding Path="Calibration.IsCalibrating"/>
+                                                            </MultiBinding>
+                                                        </DataTrigger.Binding>
+                                                        <Setter Property="Text" Value="●"/>
+                                                        <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Value="done">
+                                                        <DataTrigger.Binding>
+                                                            <MultiBinding Converter="{StaticResource CalibrationStepStateConverter}" ConverterParameter="4">
+                                                                <Binding Path="Calibration.CurrentStepNumber"/>
+                                                                <Binding Path="Calibration.IsCalibrating"/>
+                                                            </MultiBinding>
+                                                        </DataTrigger.Binding>
+                                                        <Setter Property="Text" Value="✓"/>
+                                                        <Setter Property="Foreground" Value="{StaticResource SuccessBrush}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Grid>
+                            </Border>
+
+
+                            <Grid Margin="0,2,0,12">
+                                <Button Content="АВТОНАСТРОЙКА (20 СЕК)" Style="{StaticResource CalibrationButtonStyle}"
+                                        Command="{Binding Calibration.AutoTuneCommand}" HorizontalAlignment="Stretch"
+                                        Visibility="{Binding Calibration.IsCalibrating, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                                <StackPanel Visibility="{Binding Calibration.IsCalibrating, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <ProgressBar Value="{Binding Calibration.CalibrationProgress, Mode=OneWay}" Minimum="0" Maximum="100" Height="8" Margin="0,0,0,8"/>
+                                    <Button Content="ОТМЕНА" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Stretch"
+                                            Command="{Binding Calibration.CancelCommand}"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="СТАТУС" Style="{StaticResource MonoLabelStyle}" FontSize="9"/>
+                                    <TextBlock Text="{Binding Calibration.CalibrationInstruction}" TextWrapping="Wrap" FontFamily="{StaticResource MonoFontFamily}"
+                                               FontSize="11" Foreground="{StaticResource AccentBrush}" Margin="0,2,0,0"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Visibility="{Binding Calibration.HasKeyboardNoisePeak, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <TextBlock Text="ПИК ЩЕЛЧКОВ" Style="{StaticResource MonoLabelStyle}" FontSize="9" HorizontalAlignment="Right"/>
+                                    <TextBlock Text="{Binding Calibration.KeyboardNoisePeakDb, StringFormat={}{0:F0} дБ}" FontFamily="{StaticResource MonoFontFamily}"
+                                               FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right" Margin="0,2,0,0"/>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- ПРАВАЯ КОЛОНКА: тонкая настройка -->
+                    <Border Grid.Column="2" Style="{StaticResource CardBorderStyle}">
+                        <StackPanel>
+                            <Grid Margin="0,0,0,14">
+                                <TextBlock Text="ТОНКАЯ НАСТРОЙКА DSP" Style="{StaticResource CardHeaderStyle}" HorizontalAlignment="Left"/>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <TextBlock Text="{Binding Dsp.ActivePresetLabel}" Style="{StaticResource MonoLabelStyle}" FontSize="10" Foreground="{StaticResource AccentBrush}" Margin="0,0,10,0"/>
+                                    <Button Content="↺ МОЯ АВТОНАСТРОЙКА" Command="{Binding Calibration.RecallCalibrationCommand}"
+                                            Background="Transparent" BorderThickness="0" Foreground="{StaticResource PurpleBrush}"
+                                            FontFamily="{StaticResource MonoFontFamily}" FontSize="10" Padding="0" Cursor="Hand"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <Grid Margin="0,0,0,4">
+                                <TextBlock Text="СРЕЗ НИЗКИХ ЧАСТОТ" Style="{StaticResource MonoLabelStyle}" HorizontalAlignment="Left"/>
+                                <TextBlock Text="{Binding Dsp.HighPassCutoffHz, StringFormat={}{0:F0} Гц}" Style="{StaticResource MonoLabelStyle}" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
+                            </Grid>
+                            <Slider Minimum="40" Maximum="200" Value="{Binding Dsp.HighPassCutoffHz}" Margin="0,0,0,14"/>
+
+                            <Grid Margin="0,0,0,4">
+                                <TextBlock Text="ПОРОГ ШУМОВОГО ГЕЙТА" Style="{StaticResource MonoLabelStyle}" HorizontalAlignment="Left"/>
+                                <TextBlock Text="{Binding Dsp.GateThresholdDb, StringFormat={}{0:F0} дБ}" Style="{StaticResource MonoLabelStyle}" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
+                            </Grid>
+                            <Slider Minimum="-70" Maximum="-20" Value="{Binding Dsp.GateThresholdDb}" Margin="0,0,0,14"/>
+
+                            <Grid Margin="0,0,0,4">
+                                <TextBlock Text="СИЛА ШУМОПОДАВЛЕНИЯ" Style="{StaticResource MonoLabelStyle}" HorizontalAlignment="Left"/>
+                                <TextBlock Text="{Binding Dsp.DenoiserWetMix, StringFormat={}{0:P0}}" Style="{StaticResource MonoLabelStyle}" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
+                            </Grid>
+                            <Slider Minimum="0" Maximum="1" Value="{Binding Dsp.DenoiserWetMix}" Margin="0,0,0,14"/>
+
+                            <Grid Margin="0,0,0,4">
+                                <TextBlock Text="ЦЕЛЕВОЙ УРОВЕНЬ AGC" Style="{StaticResource MonoLabelStyle}" HorizontalAlignment="Left"/>
+                                <TextBlock Text="{Binding Dsp.AgcTargetLevelDb, StringFormat={}{0:F0} дБFS}" Style="{StaticResource MonoLabelStyle}" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
+                            </Grid>
+                            <Slider Minimum="-30" Maximum="-6" Value="{Binding Dsp.AgcTargetLevelDb}" Margin="0,0,0,14"/>
+
+                            <Grid Margin="0,0,0,4">
+                                <TextBlock Text="ПОРОГ КОМПРЕССОРА" Style="{StaticResource MonoLabelStyle}" HorizontalAlignment="Left"/>
+                                <TextBlock Text="{Binding Dsp.CompressorThresholdDb, StringFormat={}{0:F0} дБFS}" Style="{StaticResource MonoLabelStyle}" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
+                            </Grid>
+                            <Slider Minimum="-30" Maximum="0" Value="{Binding Dsp.CompressorThresholdDb}" Margin="0,0,0,14"/>
+
+                            <Grid Margin="0,0,0,4">
+                                <TextBlock Text="КОЭФФИЦИЕНТ КОМПРЕССОРА" Style="{StaticResource MonoLabelStyle}" HorizontalAlignment="Left"/>
+                                <TextBlock Text="{Binding Dsp.CompressorRatio, StringFormat={}{0:F1}:1}" Style="{StaticResource MonoLabelStyle}" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
+                            </Grid>
+                            <Slider Minimum="1" Maximum="10" Value="{Binding Dsp.CompressorRatio}"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- ===================== 4. Пресеты ===================== -->
                 <Border Style="{StaticResource CardBorderStyle}" Margin="0,0,0,16">
                     <StackPanel>
-                        <TextBlock Text="ПРОФИЛЬ ПРЕСЕТОВ" Style="{StaticResource CardHeaderStyle}" Margin="0,0,0,12"/>
-                        <DockPanel LastChildFill="True">
-                            <Button DockPanel.Dock="Left" Margin="0,0,10,0"
-                                    Command="{Binding Calibration.RecallCalibrationCommand}">
-                                <TextBlock Text="🎯 МОЯ АВТОНАСТРОЙКА" Foreground="{StaticResource PurpleBrush}"/>
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding Dsp.ActivePresetLabel}" Value="Автонастройка (моя калибровка)">
-                                                <Setter Property="BorderBrush" Value="{StaticResource PurpleBrush}"/>
-                                                <Setter Property="Background" Value="{StaticResource SurfaceLightBrush}"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                            </Button>
-
-                            <ItemsControl ItemsSource="{Binding Dsp.Presets}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <WrapPanel/>
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Button Margin="0,0,8,8"
-                                                Command="{Binding DataContext.Dsp.SelectPresetCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                CommandParameter="{Binding}">
-                                            <Button.Style>
-                                                <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
-                                                    <Style.Triggers>
-                                                        <DataTrigger Value="True">
-                                                            <DataTrigger.Binding>
-                                                                <MultiBinding Converter="{StaticResource PresetActiveConverter}">
-                                                                    <Binding Path="Name"/>
-                                                                    <Binding Path="DataContext.Dsp.ActivePresetLabel" RelativeSource="{RelativeSource AncestorType=ItemsControl}"/>
-                                                                </MultiBinding>
-                                                            </DataTrigger.Binding>
-                                                            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
-                                                            <Setter Property="Background" Value="{StaticResource SurfaceLightBrush}"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Button.Style>
-                                            <TextBlock Text="{Binding Name}"/>
-                                        </Button>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </DockPanel>
+                        <TextBlock Text="ПРЕСЕТЫ ОБРАБОТКИ" Style="{StaticResource CardHeaderStyle}" Margin="0,0,0,12"/>
+                        <ItemsControl ItemsSource="{Binding Dsp.Presets}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Margin="0,0,8,8"
+                                            Command="{Binding DataContext.Dsp.SelectPresetCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Value="True">
+                                                        <DataTrigger.Binding>
+                                                            <MultiBinding Converter="{StaticResource PresetActiveConverter}">
+                                                                <Binding Path="Name"/>
+                                                                <Binding Path="DataContext.Dsp.ActivePresetLabel" RelativeSource="{RelativeSource AncestorType=ItemsControl}"/>
+                                                            </MultiBinding>
+                                                        </DataTrigger.Binding>
+                                                        <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                                                        <Setter Property="Background" Value="{StaticResource SurfaceLightBrush}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                        <TextBlock Text="{Binding Name}"/>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </StackPanel>
                 </Border>
 
-                <!-- ===================== Нижняя панель: горячая клавиша, автозапуск, драйвер ===================== -->
+                <!-- ===================== Нижняя панель: горячая клавиша, автозапуск ===================== -->
                 <Border Style="{StaticResource CardBorderStyle}">
                     <StackPanel>
                         <TextBlock Text="ГОРЯЧАЯ КЛАВИША ЗАГЛУШКИ МИКРОФОНА" Style="{StaticResource CardHeaderStyle}" Margin="0,0,0,10"/>
@@ -459,51 +751,17 @@
                                     Command="{Binding HotkeyAndUpdates.StartHotkeyCaptureCommand}"/>
                         </Grid>
 
-                        <CheckBox Content="ЗАПУСКАТЬ ПРИ СТАРТЕ WINDOWS" IsChecked="{Binding IsAutostartEnabled}" Margin="0,0,0,16"/>
-
-                        <Separator Background="{StaticResource BorderBrush2}" Margin="0,0,0,14"/>
-
-                        <Button Content="УДАЛИТЬ ДРАЙВЕР" Style="{StaticResource DangerGhostButtonStyle}"
-                                Command="{Binding Driver.UninstallDriverCommand}" HorizontalAlignment="Left"
-                                Visibility="{Binding Driver.IsDriverInstalled, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                        <CheckBox Content="ЗАПУСКАТЬ ПРИ СТАРТЕ WINDOWS" IsChecked="{Binding IsAutostartEnabled}"/>
                     </StackPanel>
                 </Border>
 
             </StackPanel>
         </ScrollViewer>
 
-        <!-- ===================== Модальное окно автонастройки ===================== -->
-        <Border Grid.Row="0" Grid.RowSpan="2" Background="{StaticResource OverlayScrimBrush}"
-                Visibility="{Binding Calibration.IsCalibrating, Converter={StaticResource BoolToVisibilityConverter}}">
-            <Border MaxWidth="420" Background="{StaticResource GlassPanelBrush}" BorderBrush="{StaticResource PurpleBrush}"
-                    BorderThickness="1" CornerRadius="18" Padding="28"
-                    HorizontalAlignment="Center" VerticalAlignment="Center"
-                    Effect="{StaticResource ModalElevationEffect}">
-                <StackPanel>
-                    <Border Width="56" Height="56" CornerRadius="16" Background="#33A855F7" BorderBrush="{StaticResource PurpleBrush}"
-                            BorderThickness="1" HorizontalAlignment="Center" Margin="0,0,0,14">
-                        <TextBlock Text="⚡" FontSize="24" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Border>
-                    <TextBlock Text="ИНТЕЛЛЕКТУАЛЬНАЯ АВТОНАСТРОЙКА" FontWeight="Bold" FontSize="15"
-                               HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" Margin="0,0,0,8"/>
-                    <TextBlock Text="{Binding Calibration.CalibrationInstruction}" FontFamily="{StaticResource MonoFontFamily}" FontSize="12"
-                               Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" TextAlignment="Center"
-                               TextWrapping="Wrap" Margin="0,0,0,18"/>
-
-                    <ProgressBar Value="{Binding Calibration.CalibrationProgress, Mode=OneWay}" Minimum="0" Maximum="100" Height="8" Margin="0,0,0,8"/>
-                    <TextBlock Text="{Binding Calibration.CalibrationProgress, StringFormat={}{0:F0}%}" Style="{StaticResource MonoLabelStyle}"
-                               FontSize="10" HorizontalAlignment="Right" Margin="0,0,0,18"/>
-
-                    <Grid Margin="0,0,0,18" Visibility="{Binding Calibration.HasKeyboardNoisePeak, Converter={StaticResource BoolToVisibilityConverter}}">
-                        <TextBlock Text="ПИК ЩЕЛЧКОВ КЛАВИАТУРЫ" Style="{StaticResource MonoLabelStyle}" HorizontalAlignment="Left"/>
-                        <TextBlock Text="{Binding Calibration.KeyboardNoisePeakDb, StringFormat={}{0:F0} дБ}" Style="{StaticResource MonoLabelStyle}"
-                                   Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
-                    </Grid>
-
-                    <Button Content="ОТМЕНА" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Stretch"
-                            Command="{Binding Calibration.CancelCommand}"/>
-                </StackPanel>
-            </Border>
+        <!-- ===================== Подвал ===================== -->
+        <Border Grid.Row="2" Background="{StaticResource HeaderFooterBrush}" BorderBrush="{StaticResource BorderBrush2}"
+                BorderThickness="0,1,0,0" Padding="20,8">
+            <TextBlock Text="NeuroMicrophone — AI Audio DSP Engine" Style="{StaticResource MonoLabelStyle}" FontSize="9" HorizontalAlignment="Center"/>
         </Border>
 
     </Grid>
