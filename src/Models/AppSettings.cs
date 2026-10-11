@@ -22,6 +22,13 @@ public sealed class AppSettings
     public bool LaunchOnStartup { get; set; }
 
     /// <summary>
+    /// true, если программа уже хоть раз показывала всплывающее пояснение
+    /// при сворачивании в трей — дальше его незачем повторять. См.
+    /// MainViewModel.ConsumeFirstTrayMinimizeHint().
+    /// </summary>
+    public bool HasShownTrayMinimizeHint { get; set; }
+
+    /// <summary>
     /// Параметры подключения к серверу WebSocket в OBS и последний выбранный
     /// источник-микрофон. Пароль OBS здесь намеренно НЕТ — он не сохраняется
     /// на диск (см. комментарий в ObsViewModel). Значения по умолчанию

@@ -25,6 +25,23 @@ public partial class MainViewModel
 
     private bool _isLoadingSettings;
 
+    private bool _hasShownTrayMinimizeHint;
+
+    /// <summary>
+    /// Вызывается из MainWindow при каждом сворачивании в трей. Возвращает
+    /// true только один раз за всё время использования программы (факт
+    /// сохраняется в настройках) — этим единственным вызовом одновременно
+    /// проверяет и отмечает показ, так что вызывающему коду не нужно знать
+    /// про механику сохранения настроек.
+    /// </summary>
+    public bool ConsumeFirstTrayMinimizeHint()
+    {
+        if (_hasShownTrayMinimizeHint) return false;
+        _hasShownTrayMinimizeHint = true;
+        ScheduleSettingsSave();
+        return true;
+    }
+
     private bool _isAutostartEnabled;
     public bool IsAutostartEnabled
     {
@@ -82,6 +99,7 @@ public partial class MainViewModel
 
             Driver.LoadPublishedDriverInfName(settings.PublishedDriverInfName);
             IsAutostartEnabled = settings.LaunchOnStartup;
+            _hasShownTrayMinimizeHint = settings.HasShownTrayMinimizeHint;
         }
         finally
         {
@@ -112,6 +130,7 @@ public partial class MainViewModel
             HotkeyModifiers = HotkeyAndUpdates.HotkeyModifierFlags,
             HotkeyVirtualKey = HotkeyAndUpdates.HotkeyVirtualKey,
             LaunchOnStartup = IsAutostartEnabled,
+            HasShownTrayMinimizeHint = _hasShownTrayMinimizeHint,
             ObsHost = Obs.Host,
             ObsPort = Obs.PortForSettings,
             ObsSourceName = Obs.SelectedSourceNameForSettings,

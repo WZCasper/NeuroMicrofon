@@ -188,7 +188,10 @@ public partial class MainWindow : Window
     {
         if (WindowState == WindowState.Minimized)
         {
-            _trayIconService?.ShowInTray();
+            // Подсказку показываем только при самом первом сворачивании за всё
+            // время использования программы (факт сохраняется в настройках) —
+            // дальше пользователь уже знает, что искать значок в трее.
+            _trayIconService?.ShowInTray(showHint: _viewModel.ConsumeFirstTrayMinimizeHint());
         }
     }
 

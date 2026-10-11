@@ -41,10 +41,24 @@ public sealed class TrayIconService : IDisposable
         _notifyIcon.DoubleClick += (_, _) => ShowWindow();
     }
 
-    public void ShowInTray()
+    /// <summary>
+    /// Показывает значок в трее и прячет окно. showHint — показать ли рядом
+    /// короткое всплывающее пояснение (нужно только один раз, пока
+    /// пользователь ещё не знает про эту иконку — дальше он уже в курсе).
+    /// </summary>
+    public void ShowInTray(bool showHint)
     {
         _notifyIcon.Visible = true;
         _window.Hide();
+
+        if (showHint)
+        {
+            _notifyIcon.ShowBalloonTip(
+                5000,
+                "NeuroMicrophone свёрнут в трей",
+                "Обработка звука и горячая клавиша заглушки продолжают работать в фоне. Чтобы открыть окно — дважды щёлкните по этому значку.",
+                ToolTipIcon.Info);
+        }
     }
 
     private void ShowWindow()
