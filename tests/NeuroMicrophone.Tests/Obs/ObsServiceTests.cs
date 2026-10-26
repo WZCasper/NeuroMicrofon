@@ -72,6 +72,28 @@ public class ObsServiceTests
     }
 
     [Fact]
+    public async Task Apply_WhenFiltersWereManuallyReorderedInObs_RestoresCanonicalOrder()
+    {
+        await using var server = new FakeObsServer();
+        FakeSource mic = server.AddSource(Mic, "wasapi_input_capture", AudioCaps);
+
+        await Service.ApplyAsync(Settings(server), Mic, ObsFilterPlan.Build(Snapshot()), CancellationToken.None);
+
+        // Имитация того, что пользователь вручную переставил фильтры внутри
+        // самого OBS — например, поднял компрессор выше шумодава.
+        FakeFilter comp = mic.Filter(ObsFilterPlan.CompressorName)!;
+        mic.Filters.Remove(comp);
+        mic.Filters.Insert(0, comp);
+        Assert.Equal(ObsFilterPlan.CompressorName, mic.Filters[0].Name);
+
+        await Service.ApplyAsync(Settings(server), Mic, ObsFilterPlan.Build(Snapshot()), CancellationToken.None);
+
+        Assert.Equal(
+            new[] { ObsFilterPlan.NoiseSuppressionName, ObsFilterPlan.NoiseGateName, ObsFilterPlan.CompressorName, ObsFilterPlan.LimiterName },
+            mic.Filters.Select(f => f.Name).ToArray());
+    }
+
+    [Fact]
     public async Task Apply_Twice_UpdatesExistingFiltersInsteadOfDuplicatingThem()
     {
         await using var server = new FakeObsServer();

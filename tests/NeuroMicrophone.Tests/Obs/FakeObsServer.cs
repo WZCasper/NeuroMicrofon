@@ -362,6 +362,20 @@ public sealed class FakeObsServer : IAsyncDisposable
                     target.Filters.Remove(filter);
                     return (100, null, null);
 
+                case "SetSourceFilterIndex":
+                {
+                    if (filter == null) return (600, "No filter was found by that name.", null);
+
+                    // Повторяет реальное поведение OBS: убрать фильтр из текущей
+                    // позиции и вставить на запрошенный индекс (ограниченный
+                    // текущей длиной списка — после удаления она на 1 меньше).
+                    int newIndex = (int)data["filterIndex"]!;
+                    target.Filters.Remove(filter);
+                    newIndex = Math.Clamp(newIndex, 0, target.Filters.Count);
+                    target.Filters.Insert(newIndex, filter);
+                    return (100, null, null);
+                }
+
                 default:
                     return (204, $"Unknown request type {requestType}.", null);
             }

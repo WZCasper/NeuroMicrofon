@@ -144,6 +144,24 @@ public sealed class ObsService
                 }
             }
 
+            // Выше фильтры только создавались/обновлялись — их взаимный
+            // порядок на источнике при этом не менялся. Если пользователь
+            // когда-то вручную переставил фильтры внутри самого OBS, они так
+            // и остались бы в "чужом" порядке после повторного APPLY. Здесь
+            // явно восстанавливаем порядок, задокументированный в
+            // ObsFilterPlan ("порядок совпадает с порядком обработки") —
+            // иначе реальная цепочка обработки в OBS могла бы разойтись с
+            // тем, что показывает интерфейс NeuroMicrophone.
+            for (int i = 0; i < filters.Count; i++)
+            {
+                await client.SendRequestAsync("SetSourceFilterIndex", new JsonObject
+                {
+                    ["sourceName"] = sourceName,
+                    ["filterName"] = filters[i].Name,
+                    ["filterIndex"] = i,
+                }, token).ConfigureAwait(false);
+            }
+
             return new ObsApplyResult(sourceName, client.ObsStudioVersion, created, updated, warnings);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
