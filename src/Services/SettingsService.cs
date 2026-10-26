@@ -22,14 +22,33 @@ public sealed class SettingsService
 
     private readonly string _settingsFilePath;
 
-    public SettingsService()
+    public SettingsService() : this(DefaultSettingsFilePath())
+    {
+    }
+
+    /// <summary>
+    /// Перегрузка с явным путём к файлу настроек — нужна юнит-тестам, чтобы
+    /// проверять реальное чтение/запись на диск, не трогая настоящую папку
+    /// пользователя %LocalAppData%\NeuroMicrophone. В самом приложении не
+    /// используется: MainViewModel вызывает параметрless-конструктор выше.
+    /// </summary>
+    public SettingsService(string settingsFilePath)
+    {
+        _settingsFilePath = settingsFilePath;
+
+        string? directory = Path.GetDirectoryName(settingsFilePath);
+        if (!string.IsNullOrEmpty(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+    }
+
+    private static string DefaultSettingsFilePath()
     {
         string directory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "NeuroMicrophone");
-
-        Directory.CreateDirectory(directory);
-        _settingsFilePath = Path.Combine(directory, "settings.json");
+        return Path.Combine(directory, "settings.json");
     }
 
     public async Task<AppSettings?> LoadAsync()
