@@ -40,8 +40,14 @@ public sealed class DriverViewModel : ViewModelBase
 
         OpenVbCableLinkCommand = new RelayCommand(() =>
             Process.Start(new ProcessStartInfo("https://vb-audio.com/Cable/") { UseShellExecute = true }));
-        InstallDriverCommand = new RelayCommand(async () => await InstallDriverAsync(), () => !IsDriverInstalled);
-        UninstallDriverCommand = new RelayCommand(async () => await UninstallDriverAsync(), () => IsDriverInstalled);
+
+        // AsyncRelayCommand (а не RelayCommand + async-лямбда): без
+        // собственного флага "выполняется прямо сейчас" быстрый двойной
+        // клик мог запустить вторую установку/удаление параллельно с
+        // первой, пока IsDriverInstalled ещё не успело обновиться — два
+        // процесса pnputil.exe и два запроса прав администратора разом.
+        InstallDriverCommand = new AsyncRelayCommand(InstallDriverAsync, () => !IsDriverInstalled, ReportUnexpectedError);
+        UninstallDriverCommand = new AsyncRelayCommand(UninstallDriverAsync, () => IsDriverInstalled, ReportUnexpectedError);
 
         IsDriverInstalled = _driverInstaller.IsDriverInstalled();
     }
@@ -60,6 +66,19 @@ public sealed class DriverViewModel : ViewModelBase
     {
         _publishedDriverInfName = publishedDriverInfName;
     }
+
+    /// <summary>
+    /// AsyncRelayCommand вызывает это, только если InstallDriverAsync/
+    /// UninstallDriverAsync выбросили исключение, которое сами не поймали —
+    /// в нормальной работе такого не происходит (DriverInstaller ловит все
+    /// ошибки сам и возвращает DriverInstallResult.Failure), но, например,
+    /// IsDriverInstalled() ниже обращается к COM/WMI и теоретически может
+    /// бросить. Без этого обработчика такое исключение дошло бы до общего
+    /// диалога Application.DispatcherUnhandledException — тоже безопасно,
+    /// но с менее понятным пользователю сообщением, чем родной для этого
+    /// экрана StatusMessage.
+    /// </summary>
+    private void ReportUnexpectedError(Exception ex) => _setStatusMessage($"Непредвиденная ошибка: {ex.Message}");
 
     private async Task InstallDriverAsync()
     {
