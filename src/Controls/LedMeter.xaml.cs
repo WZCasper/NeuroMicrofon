@@ -115,21 +115,32 @@ public partial class LedMeter : UserControl
         }
     }
 
+    // Кэш брашей темы: раньше FindResource вызывался заново на каждый тик
+    // таймера метров (~30 раз/с) для каждого из до 24 сегментов — ресурсы
+    // статические (тема в приложении не переключается в рантайме), поэтому
+    // результат можно смело переиспользовать. Инициализация ленивая, а не в
+    // конструкторе: FindResource требует, чтобы элемент уже был в визуальном
+    // дереве, а на момент создания элемента это ещё не гарантировано.
+    private Brush? _successBrush;
+    private Brush? _warningBrush;
+    private Brush? _dangerBrush;
+    private Brush? _offBrush;
+
     private Brush ColorForSegment(int index, int total)
     {
         if (IsGainReduction)
         {
             return index > total * 0.7
-                ? (Brush)FindResource("DangerBrush")
-                : (Brush)FindResource("WarningBrush");
+                ? _dangerBrush ??= (Brush)FindResource("DangerBrush")
+                : _warningBrush ??= (Brush)FindResource("WarningBrush");
         }
 
-        if (index < total * 0.62) return (Brush)FindResource("SuccessBrush");
-        if (index < total * 0.83) return (Brush)FindResource("WarningBrush");
-        return (Brush)FindResource("DangerBrush");
+        if (index < total * 0.62) return _successBrush ??= (Brush)FindResource("SuccessBrush");
+        if (index < total * 0.83) return _warningBrush ??= (Brush)FindResource("WarningBrush");
+        return _dangerBrush ??= (Brush)FindResource("DangerBrush");
     }
 
-    private Brush GetOffBrush() => (Brush)FindResource("MeterOffBrush");
+    private Brush GetOffBrush() => _offBrush ??= (Brush)FindResource("MeterOffBrush");
 
     private static double Normalize(double value, double min, double max)
     {
