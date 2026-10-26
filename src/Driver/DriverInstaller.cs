@@ -103,6 +103,11 @@ public sealed class DriverInstaller
             return DriverInstallResult.Failure($"INF-файл не найден: {infPath}");
         }
 
+        if (ContainsUnsafeCommandLineCharacter(infPath))
+        {
+            return DriverInstallResult.Failure($"Путь к INF-файлу содержит недопустимый символ: {infPath}");
+        }
+
         try
         {
             (int exitCode, string output) = await RunElevatedCommandAsync(
@@ -201,6 +206,11 @@ public sealed class DriverInstaller
                 "Посмотрите его вручную через 'pnputil /enum-drivers' и передайте явно.");
         }
 
+        if (ContainsUnsafeCommandLineCharacter(publishedInfName))
+        {
+            return DriverInstallResult.Failure($"Имя драйвера содержит недопустимый символ: {publishedInfName}");
+        }
+
         try
         {
             (int exitCode, string output) = await RunElevatedCommandAsync(
@@ -219,6 +229,22 @@ public sealed class DriverInstaller
             return DriverInstallResult.Failure($"Ошибка удаления драйвера: {ex.Message}");
         }
     }
+
+    /// <summary>
+    /// И InstallDriverAsync, и UninstallDriverAsync подставляют свой
+    /// аргумент внутрь двойных кавычек в командной строке для cmd.exe (см.
+    /// RunElevatedCommandAsync) — кавычка внутри самого значения прервала
+    /// бы эти кавычки раньше времени и позволила бы остатку строки быть
+    /// разобранным cmd.exe как отдельные, уже не экранированные команды.
+    /// Сегодня оба значения приходят не напрямую от пользователя (путь к
+    /// собственному INF-файлу приложения; имя, которое для устройства
+    /// вернула сама Windows через WMI) — но проверка ничего не стоит, а
+    /// не полагаться на то, откуда именно взялось значение, безопаснее.
+    /// Перевод строки запрещён по той же причине — на всякий случай, хотя
+    /// ни путь, ни имя драйвера в норме его не содержат.
+    /// </summary>
+    private static bool ContainsUnsafeCommandLineCharacter(string value) =>
+        value.Contains('"') || value.Contains('\n') || value.Contains('\r');
 
     /// <summary>
     /// Запускает команду через cmd.exe с точечным запросом повышения прав

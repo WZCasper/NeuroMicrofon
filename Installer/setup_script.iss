@@ -234,6 +234,9 @@ var
   OutputFile: String;
   PublishedName: String;
   InfFullPath: String;
+  OutputLines: TArrayOfString;
+  OutputText: String;
+  i: Integer;
 begin
   InfFullPath := ExpandConstant('{app}\Driver\Package\{#DriverInfName}');
   if not FileExists(InfFullPath) then
@@ -247,11 +250,45 @@ begin
     '/c pnputil.exe /add-driver "' + InfFullPath + '" /install > "' + OutputFile + '" 2>&1'),
     '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 
+  // Раньше ResultCode и вывод pnputil здесь просто отбрасывались: при
+  // неудаче (чаще всего — INF-пакет не подписан действительным
+  // сертификатом, см. README.md) установщик молча завершался как ни в
+  // чём не бывало, без виртуального устройства и без единого объяснения,
+  // почему. Теперь при ненулевом коде явно показываем причину и
+  // напоминаем про запасной путь — кнопку "Установить драйвер" внутри
+  // самой программы, которая показывает ту же диагностику.
+  if ResultCode <> 0 then
+  begin
+    OutputText := '';
+    if LoadStringsFromFile(OutputFile, OutputLines) then
+    begin
+      for i := 0 to GetArrayLength(OutputLines) - 1 do
+      begin
+        OutputText := OutputText + OutputLines[i] + #13#10;
+      end;
+    end;
+
+    MsgBox('Не удалось автоматически установить виртуальный аудиодрайвер ' +
+           '(pnputil завершился с кодом ' + IntToStr(ResultCode) + '). Наиболее ' +
+           'вероятная причина — INF-пакет не подписан действительным сертификатом ' +
+           '(подробности в README.md).' + #13#10#13#10 +
+           'NeuroMicrophone всё равно будет установлен и будет работать: виртуальный ' +
+           'микрофон можно будет установить позже кнопкой "Установить драйвер" внутри ' +
+           'самой программы.' + #13#10#13#10 +
+           'Вывод pnputil:' + #13#10 + OutputText,
+           mbError, MB_OK);
+  end;
+
   PublishedName := FindPublishedDriverInfNameViaWmi();
 
   if PublishedName <> '' then
   begin
     RegWriteStringValue(RegistryRoot, RegistryKeyPath, RegistryValueName, PublishedName);
+  end;
+
+  if FileExists(OutputFile) then
+  begin
+    DeleteFile(OutputFile);
   end;
 end;
 
