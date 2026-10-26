@@ -22,14 +22,21 @@ public sealed class HighPassFilter : ISampleProvider
     private readonly ISampleProvider _source;
     private readonly int _sampleRate;
 
-    private float _cutoffHz = 90f;
-    private float _q = 0.707f;
-    private bool _coefficientsDirty = true;
+    // CutoffHz/Q/Enabled пишутся с потока UI (биндинги через DspViewModel)
+    // и читаются на аудиопотоке внутри каждого вызова Read() — та же
+    // причина для volatile, что и в NoiseGate (см. комментарий там).
+    private volatile float _cutoffHz = 90f;
+    private volatile float _q = 0.707f;
+    private volatile bool _enabled = true;
+    private volatile bool _coefficientsDirty = true;
 
+    // Коэффициенты и история фильтра живут исключительно на аудиопотоке
+    // (читаются и пишутся только внутри Read()/RecomputeCoefficients()),
+    // поэтому volatile им не нужен.
     private float _b0, _b1, _b2, _a1, _a2;
     private float _x1, _x2, _y1, _y2;
 
-    public bool Enabled { get; set; } = true;
+    public bool Enabled { get => _enabled; set => _enabled = value; }
 
     public float CutoffHz
     {

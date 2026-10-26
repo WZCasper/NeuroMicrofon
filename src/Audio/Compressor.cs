@@ -27,24 +27,36 @@ public sealed class Compressor : ISampleProvider
     // один раз в конструкторе, а не на каждый вызов Read().
     private readonly double _rmsCoeff;
 
-    private double _runningMeanSquare;
-    private float _currentGainReductionDb;
+    private double _runningMeanSquare; // участвует только в вычислениях на аудиопотоке
 
-    private float _attackMs = 10f;
-    private float _releaseMs = 150f;
-    private float _makeupGainDb;
-    private bool _coefficientsDirty = true;
+    // ThresholdDb/Ratio/KneeDb/AttackMs/ReleaseMs/MakeupGainDb/Enabled
+    // пишутся с потока UI (биндинги через DspViewModel) и читаются на
+    // аудиопотоке внутри каждого вызова Read() — помечены volatile по тем
+    // же причинам, что и в NoiseGate (см. комментарий там). Обратный
+    // случай — _currentGainReductionDb: пишется на аудиопотоке, читается
+    // с потока UI таймером метров (MainViewModel), поэтому тоже нуждается
+    // в volatile.
+    private volatile float _currentGainReductionDb;
+    private volatile float _thresholdDb = -12f;
+    private volatile float _ratio = 3f;
+    private volatile float _kneeDb = 6f;
+    private volatile float _attackMs = 10f;
+    private volatile float _releaseMs = 150f;
+    private volatile float _makeupGainDb;
+    private volatile bool _enabled = true;
+    private volatile bool _coefficientsDirty = true;
 
     // Кэш attack/release/makeup — пересчитывается только при изменении
     // соответствующего параметра, а не на каждый вызов Read() (тот же
-    // приём, что уже применяется в HighPassFilter).
+    // приём, что уже применяется в HighPassFilter). Читается и пишется
+    // только на аудиопотоке, поэтому volatile ему не нужен.
     private float _attackCoeff;
     private float _releaseCoeff;
     private float _makeupLinear = 1f;
 
-    public float ThresholdDb { get; set; } = -12f;
-    public float Ratio { get; set; } = 3f;
-    public float KneeDb { get; set; } = 6f;
+    public float ThresholdDb { get => _thresholdDb; set => _thresholdDb = value; }
+    public float Ratio { get => _ratio; set => _ratio = value; }
+    public float KneeDb { get => _kneeDb; set => _kneeDb = value; }
 
     public float AttackMs
     {
@@ -64,7 +76,7 @@ public sealed class Compressor : ISampleProvider
         set { if (_makeupGainDb == value) return; _makeupGainDb = value; _coefficientsDirty = true; }
     }
 
-    public bool Enabled { get; set; } = true;
+    public bool Enabled { get => _enabled; set => _enabled = value; }
 
     /// <summary>
     /// Текущее (сглаженное) снижение усиления в дБ, значение &lt;= 0.

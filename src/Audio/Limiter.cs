@@ -21,18 +21,36 @@ public sealed class Limiter : ISampleProvider
     private readonly int _sampleRate;
     private readonly int _lookaheadFrames;
     private readonly float[] _delayBuffer;      // кольцевой буфер задержанных сэмплов, lookaheadFrames * channels
-    private readonly float[] _peakWindow;        // кольцевой буфер пиков по кадрам, lookaheadFrames
     private readonly float[] _delayedFrameScratch; // переиспользуемый буфер на один кадр (без аллокаций в Read)
-    private int _writePos;
-    private float _currentGain = 1f;
 
-    private float _ceilingDb = -2f;
-    private float _releaseMs = 100f;
-    private bool _coefficientsDirty = true;
+    // Монотонная очередь для скользящего максимума пиков за окно
+    // lookaheadFrames кадров — подробности алгоритма см. в комментарии
+    // внутри Read(). Оба массива — кольцевые буферы ёмкостью lookaheadFrames:
+    // это строгая верхняя граница числа элементов, которые когда-либо
+    // одновременно лежат в очереди (при самой невыгодной — строго убывающей
+    // — последовательности пиков очередь растёт не быстрее чем на 1 элемент
+    // за кадр, а элементы старше lookaheadFrames кадров каждый раз
+    // вытесняются с головы).
+    private readonly int[] _dequeFramePos;
+    private readonly float[] _dequeValue;
+    private int _dequeHead;  // только аудиопоток
+    private int _dequeCount; // только аудиопоток
+
+    private int _writePos; // только аудиопоток — индекс кольцевого буфера; также монотонный номер кадра для очереди выше
+    private volatile float _currentGain = 1f; // пишется на аудиопотоке, читается с потока UI через CurrentGainReductionDb
+
+    // CeilingDb/ReleaseMs/Enabled пишутся с потока UI (биндинги через
+    // DspViewModel) и читаются на аудиопотоке внутри каждого вызова Read()
+    // — та же причина для volatile, что и в NoiseGate (см. комментарий там).
+    private volatile float _ceilingDb = -2f;
+    private volatile float _releaseMs = 100f;
+    private volatile bool _enabled = true;
+    private volatile bool _coefficientsDirty = true;
 
     // Кэш ceiling/release — пересчитывается только при изменении
     // соответствующего параметра, а не на каждый вызов Read() (тот же
-    // приём, что уже применяется в HighPassFilter).
+    // приём, что уже применяется в HighPassFilter). Читается и пишется
+    // только на аудиопотоке, поэтому volatile ему не нужен.
     private float _ceilingLinear;
     private float _releaseCoeff;
 
@@ -48,7 +66,7 @@ public sealed class Limiter : ISampleProvider
         set { if (_releaseMs == value) return; _releaseMs = value; _coefficientsDirty = true; }
     }
 
-    public bool Enabled { get; set; } = true;
+    public bool Enabled { get => _enabled; set => _enabled = value; }
 
     /// <summary>
     /// Текущее (сглаженное) снижение усиления в дБ, значение &lt;= 0.
@@ -65,8 +83,9 @@ public sealed class Limiter : ISampleProvider
         _sampleRate = source.WaveFormat.SampleRate;
         _lookaheadFrames = Math.Max(1, (int)(lookaheadMs / 1000f * _sampleRate));
         _delayBuffer = new float[_lookaheadFrames * _channels];
-        _peakWindow = new float[_lookaheadFrames];
         _delayedFrameScratch = new float[_channels];
+        _dequeFramePos = new int[_lookaheadFrames];
+        _dequeValue = new float[_lookaheadFrames];
     }
 
     public int Read(float[] buffer, int offset, int count)
@@ -90,7 +109,6 @@ public sealed class Limiter : ISampleProvider
             }
 
             int ringIndex = _writePos % _lookaheadFrames;
-            _peakWindow[ringIndex] = incomingPeak;
 
             // Сохраняем текущий кадр в линию задержки и одновременно забираем
             // тот, что был записан lookaheadFrames кадров назад — именно его
@@ -102,11 +120,34 @@ public sealed class Limiter : ISampleProvider
                 _delayBuffer[delayIndex + ch] = buffer[frameOffset + ch];
             }
 
-            float windowPeak = 0f;
-            for (int i = 0; i < _lookaheadFrames; i++)
+            // Скользящий максимум пиков за окно lookaheadFrames кадров — O(1)
+            // амортизированно через монотонную очередь, вместо полного
+            // перебора всего окна на каждый кадр (раньше — O(lookaheadFrames)
+            // сравнений на КАЖДЫЙ сэмпл; при 5 мс/48 кГц lookaheadFrames=240).
+            // Очередь хранит пары (номер кадра, пик) по невозрастанию пика:
+            // любой уже сохранённый кадр, чей пик не больше пика нового кадра,
+            // впредь не может стать максимумом окна раньше нового — такие
+            // кадры сразу выбрасываются с хвоста. Текущий максимум окна всегда
+            // лежит в голове очереди, а кадры старше lookaheadFrames шагов
+            // вытесняются оттуда по мере сдвига окна — то же самое
+            // "забывание", которое раньше происходило само по себе за счёт
+            // перезаписи кольцевого буфера пиков.
+            while (_dequeCount > 0 && _dequeValue[(_dequeHead + _dequeCount - 1) % _lookaheadFrames] <= incomingPeak)
             {
-                if (_peakWindow[i] > windowPeak) windowPeak = _peakWindow[i];
+                _dequeCount--;
             }
+            int dequeTailIndex = (_dequeHead + _dequeCount) % _lookaheadFrames;
+            _dequeFramePos[dequeTailIndex] = _writePos;
+            _dequeValue[dequeTailIndex] = incomingPeak;
+            _dequeCount++;
+
+            while (_writePos - _dequeFramePos[_dequeHead] >= _lookaheadFrames)
+            {
+                _dequeHead = (_dequeHead + 1) % _lookaheadFrames;
+                _dequeCount--;
+            }
+
+            float windowPeak = _dequeValue[_dequeHead];
 
             float requiredGain = windowPeak > _ceilingLinear ? _ceilingLinear / windowPeak : 1f;
 

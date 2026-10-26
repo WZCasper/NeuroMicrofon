@@ -31,18 +31,28 @@ public sealed class NoiseGate : ISampleProvider
     private readonly IVoiceActivitySource? _vadSource;
     private readonly int _sampleRate;
     private readonly int _channels;
-    private float _envelope = 1f; // текущий применяемый коэффициент усиления, 0..1
-    private int _holdRemainingFrames;
+    private float _envelope = 1f; // текущий применяемый коэффициент усиления, 0..1 — живёт только на аудиопотоке
+    private int _holdRemainingFrames; // живёт только на аудиопотоке
 
-    private float _thresholdDb = -50f;
-    private float _attackMs = 5f;
-    private float _holdMs = 100f;
-    private float _releaseMs = 150f;
-    private bool _coefficientsDirty = true;
+    // Параметры ниже пишутся с потока UI (биндинги ползунков через
+    // DspViewModel) и читаются на аудиопотоке внутри каждого вызова Read().
+    // volatile здесь обязателен: без него модель памяти .NET не гарантирует
+    // аудиопотоку ни своевременной видимости нового значения, ни (для пары
+    // "значение + _coefficientsDirty") сохранения порядка этих двух записей
+    // друг относительно друга.
+    private volatile float _thresholdDb = -50f;
+    private volatile float _attackMs = 5f;
+    private volatile float _holdMs = 100f;
+    private volatile float _releaseMs = 150f;
+    private volatile float _vadThreshold = 0.6f;
+    private volatile bool _enabled = true;
+    private volatile bool _coefficientsDirty = true;
 
     // Кэш вычисленных коэффициентов — пересчитывается только когда
-    // реально меняется один из параметров ниже, а не на каждый вызов
-    // Read() (тот же приём, что уже применяется в HighPassFilter).
+    // реально меняется один из параметров выше, а не на каждый вызов
+    // Read() (тот же приём, что уже применяется в HighPassFilter). Сам кэш
+    // и читается, и пишется исключительно на аудиопотоке, поэтому ему
+    // volatile не нужен.
     private float _thresholdLinear;
     private float _attackCoeff;
     private float _releaseCoeff;
@@ -73,8 +83,8 @@ public sealed class NoiseGate : ISampleProvider
         set { if (_releaseMs == value) return; _releaseMs = value; _coefficientsDirty = true; }
     }
 
-    public float VadThreshold { get; set; } = 0.6f;
-    public bool Enabled { get; set; } = true;
+    public float VadThreshold { get => _vadThreshold; set => _vadThreshold = value; }
+    public bool Enabled { get => _enabled; set => _enabled = value; }
 
     public WaveFormat WaveFormat => _source.WaveFormat;
 

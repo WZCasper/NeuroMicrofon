@@ -25,23 +25,33 @@ public sealed class AutoGainControl : ISampleProvider
     // один раз в конструкторе, а не на каждый вызов Read().
     private readonly double _rmsCoeff;
 
-    private double _runningMeanSquare;
-    private float _currentGainDb;
+    private double _runningMeanSquare; // только аудиопоток
+    private float _currentGainDb; // только аудиопоток — в отличие от Compressor/Limiter, наружу в UI не читается
 
-    private float _attackMs = 50f;
-    private float _releaseMs = 500f;
-    private bool _coefficientsDirty = true;
+    // TargetLevelDb/NoiseFloorDb/MaxGainDb/MinGainDb/AttackMs/ReleaseMs/
+    // Enabled пишутся с потока UI (биндинги через DspViewModel) и читаются
+    // на аудиопотоке внутри каждого вызова Read() — та же причина для
+    // volatile, что и в NoiseGate (см. комментарий там).
+    private volatile float _targetLevelDb = -18f;
+    private volatile float _noiseFloorDb = -55f;
+    private volatile float _maxGainDb = 24f;
+    private volatile float _minGainDb = -12f;
+    private volatile float _attackMs = 50f;
+    private volatile float _releaseMs = 500f;
+    private volatile bool _enabled = true;
+    private volatile bool _coefficientsDirty = true;
 
     // Кэш attack/release — пересчитывается только при изменении
     // соответствующего параметра, а не на каждый вызов Read() (тот же
-    // приём, что уже применяется в HighPassFilter).
+    // приём, что уже применяется в HighPassFilter). Читается и пишется
+    // только на аудиопотоке, поэтому volatile ему не нужен.
     private float _attackCoeff;
     private float _releaseCoeff;
 
-    public float TargetLevelDb { get; set; } = -18f;
-    public float NoiseFloorDb { get; set; } = -55f;
-    public float MaxGainDb { get; set; } = 24f;
-    public float MinGainDb { get; set; } = -12f;
+    public float TargetLevelDb { get => _targetLevelDb; set => _targetLevelDb = value; }
+    public float NoiseFloorDb { get => _noiseFloorDb; set => _noiseFloorDb = value; }
+    public float MaxGainDb { get => _maxGainDb; set => _maxGainDb = value; }
+    public float MinGainDb { get => _minGainDb; set => _minGainDb = value; }
 
     public float AttackMs
     {
@@ -55,7 +65,7 @@ public sealed class AutoGainControl : ISampleProvider
         set { if (_releaseMs == value) return; _releaseMs = value; _coefficientsDirty = true; }
     }
 
-    public bool Enabled { get; set; } = true;
+    public bool Enabled { get => _enabled; set => _enabled = value; }
 
     public WaveFormat WaveFormat => _source.WaveFormat;
 
