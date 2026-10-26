@@ -75,6 +75,26 @@ public sealed class CalibrationViewModel : ViewModelBase
 
     public bool HasKeyboardNoisePeak => _keyboardNoisePeakDb.HasValue;
 
+    // Насколько AGC пришлось бы усилить/ослабить голос, чтобы вывести его
+    // на целевой уровень -18 дБFS, судя по средней громкости речи со 2-го
+    // этапа автонастройки — чисто информационное число для пользователя
+    // ("вот насколько тихо/громко вы обычно говорите относительно цели
+    // AGC"); сам AGC продолжает подстраиваться в реальном времени и от
+    // этого сохранённого числа не зависит. null — автонастройка в этой
+    // сессии ещё не дошла до 2-го этапа.
+    private float? _agcTargetGainDb;
+    public float? AgcTargetGainDb
+    {
+        get => _agcTargetGainDb;
+        private set
+        {
+            if (!SetProperty(ref _agcTargetGainDb, value)) return;
+            OnPropertyChanged(nameof(HasAgcTargetGainDb));
+        }
+    }
+
+    public bool HasAgcTargetGainDb => _agcTargetGainDb.HasValue;
+
     private bool _hasCalibrationResult;
     public bool HasCalibrationResult { get => _hasCalibrationResult; private set => SetProperty(ref _hasCalibrationResult, value); }
 
@@ -94,7 +114,15 @@ public sealed class CalibrationViewModel : ViewModelBase
         _setStatusMessage = setStatusMessage;
         _scheduleSettingsSave = scheduleSettingsSave;
 
-        AutoTuneCommand = new RelayCommand(async () => await RunCalibrationAsync(), () => !IsCalibrating && _engine.IsRunning);
+        // AsyncRelayCommand, а не RelayCommand + async-лямбда: собственный
+        // флаг "выполняется прямо сейчас" у AsyncRelayCommand защищает от
+        // повторного клика начиная с САМОГО первого вызова Execute — ещё до
+        // того, как RunCalibrationAsync внутри себя выставит IsCalibrating =
+        // true. !IsCalibrating ниже оставлен как есть — он управляет и
+        // видимым состоянием остального интерфейса (например, кнопки
+        // "Отмена"), не только доступностью этой команды.
+        AutoTuneCommand = new AsyncRelayCommand(RunCalibrationAsync, () => !IsCalibrating && _engine.IsRunning,
+            ex => _setStatusMessage($"Ошибка калибровки: {ex.Message}"));
         RecallCalibrationCommand = new RelayCommand(RecallCalibration, () => HasCalibrationResult);
         CancelCommand = new RelayCommand(CancelCalibration, () => IsCalibrating);
     }
@@ -193,6 +221,11 @@ public sealed class CalibrationViewModel : ViewModelBase
                             break;
                         case 2:
                             _dsp.AgcTargetLevelDb = -18f;
+
+                            // Показываем пользователю, насколько AGC пришлось бы
+                            // усилить/ослабить его обычную речь, чтобы она попала
+                            // на цель -18 дБFS (см. комментарий у AgcTargetGainDb).
+                            AgcTargetGainDb = partial.AgcTargetGainDb;
                             break;
                         case 3:
                             _dsp.CompressorThresholdDb = partial.CompressorThresholdDb;
