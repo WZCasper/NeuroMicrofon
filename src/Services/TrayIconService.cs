@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Forms;
 
@@ -16,8 +17,20 @@ namespace NeuroMicrophone.Services;
 /// </summary>
 public sealed class TrayIconService : IDisposable
 {
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool DestroyIcon(IntPtr hIcon);
+
     private readonly NotifyIcon _notifyIcon;
     private readonly Window _window;
+
+    // Bitmap.GetHicon() возвращает неуправляемый хендл GDI (HICON), которым
+    // Icon.FromHandle() не завладевает — согласно документации самого
+    // GetHicon(), освобождать этот хендл через DestroyIcon обязан вызывающий
+    // код. Icon.Dispose() для иконки, созданной через FromHandle, хендл НЕ
+    // трогает (ровно для таких случаев, когда хендл мог быть общим/внешним),
+    // поэтому без явного DestroyIcon ниже, в Dispose(), хендл оставался бы
+    // висеть до завершения процесса целиком.
+    private readonly IntPtr _iconHandle;
 
     /// <summary>Вызывается при выборе пункта "Выход" в контекстном меню трея.</summary>
     public event Action? ExitRequested;
@@ -31,9 +44,12 @@ public sealed class TrayIconService : IDisposable
         contextMenu.Items.Add(new ToolStripSeparator());
         contextMenu.Items.Add("Выход", null, (_, _) => ExitRequested?.Invoke());
 
+        (Icon icon, IntPtr handle) = CreateTrayIcon();
+        _iconHandle = handle;
+
         _notifyIcon = new NotifyIcon
         {
-            Icon = CreateTrayIcon(),
+            Icon = icon,
             Visible = false,
             Text = "NeuroMicrophone",
             ContextMenuStrip = contextMenu,
@@ -71,9 +87,11 @@ public sealed class TrayIconService : IDisposable
 
     /// <summary>
     /// Рисует простую пиктограмму микрофона 32x32 средствами GDI+, без
-    /// использования внешних файлов ресурсов.
+    /// использования внешних файлов ресурсов. Возвращает managed-обёртку
+    /// вместе с сырым хендлом — он нужен отдельно, т.к. сама обёртка Icon
+    /// этим хендлом не владеет (см. комментарий у поля _iconHandle выше).
     /// </summary>
-    private static Icon CreateTrayIcon()
+    private static (Icon Icon, IntPtr Handle) CreateTrayIcon()
     {
         using var bitmap = new Bitmap(32, 32);
         using (Graphics g = Graphics.FromImage(bitmap))
@@ -98,12 +116,16 @@ public sealed class TrayIconService : IDisposable
         }
 
         IntPtr hIcon = bitmap.GetHicon();
-        return Icon.FromHandle(hIcon);
+        return (Icon.FromHandle(hIcon), hIcon);
     }
 
     public void Dispose()
     {
         _notifyIcon.Visible = false;
         _notifyIcon.Dispose();
+
+        // Сама NotifyIcon.Dispose() выше не освобождает присвоенный Icon
+        // (и тем более не знает про исходный HICON) — освобождаем его здесь.
+        DestroyIcon(_iconHandle);
     }
 }
