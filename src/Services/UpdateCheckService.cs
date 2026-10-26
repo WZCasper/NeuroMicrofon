@@ -31,11 +31,34 @@ public sealed class UpdateCheckService
     // Если репозиторий когда-нибудь переедет/переименуется — поменять только эту строку.
     private const string ReleasesLatestApiUrl = "https://api.github.com/repos/WZCasper/NeuroMicrofon/releases/latest";
 
+    private readonly HttpMessageHandler? _testHandler;
+
+    public UpdateCheckService()
+    {
+    }
+
+    /// <summary>
+    /// Перегрузка для тестов: подменяет транспорт HTTP-запроса (например,
+    /// HttpMessageHandler, отвечающий заранее заданным JSON) вместо
+    /// настоящего обращения к api.github.com. Без неё юнит-тест, просто
+    /// конструирующий MainViewModel (см. MainViewModelSmokeTests), на
+    /// каждый прогон делал бы реальный сетевой запрос — безобидно (см.
+    /// catch ниже), но не нужно самому тесту для прохождения. В
+    /// приложении не используется: HotkeyAndUpdatesViewModel вызывает
+    /// параметрless-конструктор выше.
+    /// </summary>
+    public UpdateCheckService(HttpMessageHandler testHandler)
+    {
+        _testHandler = testHandler;
+    }
+
     public async Task<UpdateCheckResult?> CheckForUpdateAsync()
     {
         try
         {
-            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            using HttpClient client = _testHandler != null
+                ? new HttpClient(_testHandler, disposeHandler: false) { Timeout = TimeSpan.FromSeconds(10) }
+                : new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
             client.DefaultRequestHeaders.UserAgent.ParseAdd("NeuroMicrophone-UpdateCheck");
 
             using HttpResponseMessage response = await client.GetAsync(ReleasesLatestApiUrl).ConfigureAwait(false);
