@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeuroMic - AI DSP Audio Processor</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            accent: '#00f2fe',
+                            purple: '#8b5cf6',
+                            neonPink: '#f43f5e',
+                            darkBg: '#090d16',
+                            cardBg: '#111827',
+                            cardBorder: 'rgba(255, 255, 255, 0.08)',
+                            meterGreen: '#10b981',
+                            meterYellow: '#f59e0b',
+                            meterRed: '#ef4444'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    },
+                    boxShadow: {
+                        'neon-cyan': '0 0 20px rgba(0, 242, 254, 0.25)',
+                        'neon-purple': '0 0 20px rgba(139, 92, 246, 0.3)',
+                        'glow': '0 0 15px rgba(14, 165, 233, 0.15)'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Custom scrollbar for pro app feel */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #090d16;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1f2937;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #374151;
+        }
+
+        /* Glassmorphism panel style */
+        .glass-panel {
+            background: rgba(17, 24, 39, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        /* Gradient slider inputs */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: transparent;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            height: 6px;
+            cursor: pointer;
+            background: #1f2937;
+            border-radius: 3px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        input[type=range]::-webkit-slider-thumb {
+            height: 18px;
+            width: 18px;
+            border-radius: 50%;
+            background: #00f2fe;
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -6px;
+            box-shadow: 0 0 10px rgba(0, 242, 254, 0.5);
+            transition: all 0.15s ease;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+            background: #38bdf8;
+            box-shadow: 0 0 15px rgba(0, 242, 254, 0.8);
+        }
+
+        /* Glowing animation keyframes */
+        @keyframes pulseGlow {
+            0%, 100% { opacity: 0.8; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.02); }
+        }
+        .animate-pulse-glow {
+            animation: pulseGlow 2s infinite ease-in-out;
+        }
+
+        /* VU Meter Segment */
+        .vu-bar {
+            transition: width 0.05s ease-out;
+        }
+    </style>
+</head>
+<body class="bg-brand-darkBg text-slate-100 font-sans min-h-screen select-none antialiased flex flex-col justify-between overflow-x-hidden">
+
+    <!-- Top Window Titlebar & Global Controls -->
+    <header class="glass-panel sticky top-0 z-50 px-5 py-3 flex items-center justify-between border-b border-white/10 shadow-lg">
+        <!-- Logo & Branding -->
+        <div class="flex items-center gap-3">
+            <div class="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 via-indigo-500 to-purple-600 shadow-neon-cyan">
+                <i class="fa-solid font-bold fa-microphone-lines text-xl text-white"></i>
+                <span class="absolute -bottom-1 -right-1 flex h-3 w-3">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-3 w-3 bg-cyan-400"></span>
+                </span>
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="font-extrabold text-xl tracking-tight bg-gradient-to-r from-white via-slate-200 to-cyan-400 bg-clip-text text-transparent">
+                        NEUROMIC<span class="text-cyan-400 font-mono text-sm ml-1 font-semibold">DSP PRO</span>
+                    </h1>
+                    <span class="px-2 py-0.5 text-[10px] font-mono font-bold uppercase rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
+                        RNNoise AI v2.4
+                    </span>
+                </div>
+                <p class="text-xs text-slate-400 font-medium hidden sm:block">AI Audio Processing Engine & Signal Chain</p>
+            </div>
+        </div>
+
+        <!-- Global Microphone Status & System Info -->
+        <div class="flex items-center gap-4">
+            <!-- Audio Engine Status Badge -->
+            <div class="hidden md:flex items-center gap-3 px-3 py-1.5 rounded-lg bg-slate-900/80 border border-slate-800 text-xs font-mono">
+                <span class="flex items-center gap-1.5 text-slate-400">
+                    <i class="fa-solid fa-bolt text-amber-400"></i> 48 kHz / 24-bit
+                </span>
+                <span class="text-slate-600">|</span>
+                <span class="text-cyan-400 font-semibold">Задержка: 3.8 ms</span>
+            </div>
+
+            <!-- Active Status Button -->
+            <button id="mainPowerBtn" onclick="toggleEnginePower()" class="flex items-center gap-2.5 px-4 py-2 rounded-xl font-medium text-xs tracking-wide transition-all duration-300 bg-cyan-500/15 text-cyan-300 border border-cyan-500/40 hover:bg-cyan-500/25 shadow-neon-cyan">
+                <span id="powerDot" class="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_#00f2fe]"></span>
+                <span id="powerText" class="font-semibold uppercase tracking-wider">Микрофон Активен</span>
+                <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-300 border border-slate-700">M</span>
+            </button>
+
+            <!-- Window Control Icons -->
+            <div class="flex items-center gap-1 pl-2 border-l border-slate-800 text-slate-400">
+                <button class="p-2 hover:text-white transition-colors" title="Settings"><i class="fa-solid fa-gear"></i></button>
+                <button class="p-2 hover:text-white transition-colors" title="Minimize"><i class="fa-solid fa-minus"></i></button>
+                <button class="p-2 hover:text-white transition-colors" title="Close"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Dashboard Container -->
+    <main class="max-w-7xl mx-auto w-full p-4 sm:p-6 space-y-6 flex-grow">
+
+        <!-- SECTION 1: SIGNAL PROCESSING CHAIN (ЦЕПОЧКА ОБРАБОТКИ СИГНАЛА) -->
+        <section class="glass-panel p-5 rounded-2xl shadow-xl border border-white/10 relative overflow-hidden">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-2.5">
+                    <div class="p-2 rounded-lg bg-cyan-500/10 text-cyan-400">
+                        <i class="fa-solid fa-diagram-project"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-bold uppercase tracking-wider text-slate-200">Цепочка обработки сигнала</h2>
+                        <p class="text-xs text-slate-400">Нажмите на блок для включения или отключения эффекта</p>
+                    </div>
+                </div>
+                <div class="text-xs text-slate-400 font-mono hidden sm:block">
+                    <i class="fa-solid fa-arrow-right-long text-cyan-400 mr-1"></i> Порядок: Вход &rarr; DSP &rarr; Вывод
+                </div>
+            </div>
+
+            <!-- Signal Chain Cards Container -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                <!-- Node 1: RNNoise AI -->
+                <div id="node-rnnoise" onclick="toggleNode('rnnoise')" class="group cursor-pointer p-3.5 rounded-xl transition-all duration-200 glass-panel border border-cyan-500/50 bg-cyan-950/20 shadow-neon-cyan relative overflow-hidden">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-[10px] font-mono uppercase tracking-wider text-cyan-400 font-semibold">Шумоподавление</span>
+                        <div class="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_#00f2fe] node-status"></div>
+                    </div>
+                    <div class="font-bold text-sm text-white group-hover:text-cyan-300 flex items-center gap-1.5">
+                        <i class="fa-solid fa-brain text-cyan-400 text-xs"></i> RNNoise AI
+                    </div>
+                    <div class="mt-2 text-[11px] text-slate-400 font-mono flex items-center justify-between">
+                        <span>Подавление</span>
+                        <span id="badge-rnnoise-val" class="text-cyan-300 font-bold">50%</span>
+                    </div>
+                </div>
+
+                <!-- Node 2: Gate -->
+                <div id="node-gate" onclick="toggleNode('gate')" class="group cursor-pointer p-3.5 rounded-xl transition-all duration-200 glass-panel border border-cyan-500/50 bg-cyan-950/20 shadow-neon-cyan relative overflow-hidden">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-[10px] font-mono uppercase tracking-wider text-cyan-400 font-semibold">Шумовой Гейт</span>
+                        <div class="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_#00f2fe] node-status"></div>
+                    </div>
+                    <div class="font-bold text-sm text-white group-hover:text-cyan-300 flex items-center gap-1.5">
+                        <i class="fa-solid fa-filter text-cyan-400 text-xs"></i> Gate
+                    </div>
+                    <div class="mt-2 text-[11px] text-slate-400 font-mono flex items-center justify-between">
+                        <span>Порог</span>
+                        <span id="badge-gate-val" class="text-cyan-300 font-bold">-38 дБ</span>
+                    </div>
+                </div>
+
+                <!-- Node 3: AGC -->
+                <div id="node-agc" onclick="toggleNode('agc')" class="group cursor-pointer p-3.5 rounded-xl transition-all duration-200 glass-panel border border-cyan-500/50 bg-cyan-950/20 shadow-neon-cyan relative overflow-hidden">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-[10px] font-mono uppercase tracking-wider text-cyan-400 font-semibold">Автоусиление</span>
+                        <div class="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_#00f2fe] node-status"></div>
+                    </div>
+                    <div class="font-bold text-sm text-white group-hover:text-cyan-300 flex items-center gap-1.5">
+                        <i class="fa-solid fa-[#00f2fe] fa-sliders text-cyan-400 text-xs"></i> AGC
+                    </div>
+                    <div class="mt-2 text-[11px] text-slate-400 font-mono flex items-center justify-between">
+                        <span>Цель</span>
+                        <span id="badge-agc-val" class="text-cyan-300 font-bold">-18 дБFS</span>
+                    </div>
+                </div>
+
+                <!-- Node 4: Compressor -->
+                <div id="node-comp" onclick="toggleNode('comp')" class="group cursor-pointer p-3.5 rounded-xl transition-all duration-200 glass-panel border border-cyan-500/50 bg-cyan-950/20 shadow-neon-cyan relative overflow-hidden">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-[10px] font-mono uppercase tracking-wider text-cyan-400 font-semibold">Динамика</span>
+                        <div class="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_#00f2fe] node-status"></div>
+                    </div>
+                    <div class="font-bold text-sm text-white group-hover:text-cyan-300 flex items-center gap-1.5">
+                        <i class="fa-solid fa-compress text-cyan-400 text-xs"></i> Compressor
+                    </div>
+                    <div class="mt-2 text-[11px] text-slate-400 font-mono flex items-center justify-between">
+                        <span>Сжатие</span>
+                        <span id="badge-comp-val" class="text-cyan-300 font-bold">3.0:1</span>
+                    </div>
+                </div>
+
+                <!-- Node 5: Limiter -->
+                <div id="node-limiter" onclick="toggleNode('limiter')" class="group cursor-pointer p-3.5 rounded-xl transition-all duration-200 glass-panel border border-cyan-500/50 bg-cyan-950/20 shadow-neon-cyan relative overflow-hidden">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-[10px] font-mono uppercase tracking-wider text-cyan-400 font-semibold">Защита</span>
+                        <div class="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_#00f2fe] node-status"></div>
+                    </div>
+                    <div class="font-bold text-sm text-white group-hover:text-cyan-300 flex items-center gap-1.5">
+                        <i class="fa-solid fa-shield-halved text-cyan-400 text-xs"></i> Limiter
+                    </div>
+                    <div class="mt-2 text-[11px] text-slate-400 font-mono flex items-center justify-between">
+                        <span>Пик-лимит</span>
+                        <span class="text-cyan-300 font-bold">-2.0 дБ</span>
+                    </div>
+                </div>
+
+                <!-- Node 6: Virtual Cable -->
+                <div id="node-out" onclick="toggleNode('out')" class="group cursor-pointer p-3.5 rounded-xl transition-all duration-200 glass-panel border border-cyan-500/50 bg-cyan-950/20 shadow-neon-cyan relative overflow-hidden">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-[10px] font-mono uppercase tracking-wider text-cyan-400 font-semibold">Вывод</span>
+                        <div class="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_#00f2fe] node-status"></div>
+                    </div>
+                    <div class="font-bold text-sm text-white group-hover:text-cyan-300 flex items-center gap-1.5">
+                        <i class="fa-solid fa-plug text-cyan-400 text-xs"></i> Вирт. кабель
+                    </div>
+                    <div class="mt-2 text-[11px] text-slate-400 font-mono flex items-center justify-between">
+                        <span>Драйвер</span>
+                        <span class="text-emerald-400 font-bold"><i class="fa-solid fa-check text-[10px]"></i> Готов</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 2: GRID ROW (Device Routing + Spectrum Visualizer & Meters) -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+            <!-- LEFT COLUMN: DEVICE ROUTING & MONITORING (5 Cols) -->
+            <div class="lg:col-span-5 space-y-6 flex flex-col justify-between">
+                
+                <!-- Device Selection Panel -->
+                <div class="glass-panel p-5 rounded-2xl border border-white/10 shadow-xl space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-sliders text-cyan-400"></i>
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-200">Маршрутизация устройств</h3>
+                        </div>
+                        <span class="text-[10px] font-mono text-slate-400 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">ASIO / WASAPI</span>
+                    </div>
+
+                    <!-- Input Microphone Device Dropdown -->
+                    <div class="space-y-1.5">
+                        <label class="text-xs font-medium text-slate-300 flex items-center gap-1.5">
+                            <i class="fa-solid fa-microphone text-cyan-400 text-xs"></i> Физический вход (Микрофон)
+                        </label>
+                        <div class="relative">
+                            <select id="micInputSelect" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 appearance-none font-mono cursor-pointer transition-all">
+                                <option value="fifine">Микрофон 48 kHz (fifine SC3)</option>
+                                <option value="realtek">Realtek High Definition Audio (Built-in)</option>
+                                <option value="hyperx">HyperX QuadCast S (USB Audio)</option>
+                                <option value="focusrite">Focusrite Scarlett 2i2 USB</option>
+                            </select>
+                            <i class="fa-solid fa-chevron-down absolute right-3 top-3 text-slate-400 text-xs pointer-events-none"></i>
+                        </div>
+                    </div>
+
+                    <!-- Virtual Cable Output Dropdown -->
+                    <div class="space-y-1.5">
+                        <label class="text-xs font-medium text-slate-300 flex items-center justify-between">
+                            <span class="flex items-center gap-1.5">
+                                <i class="fa-solid fa-headphone-mic text-cyan-400 text-xs"></i> Виртуальный вывод (для Discord/Zoom/OBS)
+                            </span>
+                            <span class="text-[10px] text-cyan-400 font-mono">VB-Audio</span>
+                        </label>
+                        <div class="relative">
+                            <select id="virtualOutSelect" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-cyan-300 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 appearance-none font-mono cursor-pointer transition-all">
+                                <option value="vbcable">CABLE Input (VB-Audio Virtual Cable)</option>
+                                <option value="fifine_out">Микрофон 48kHz (fifine SC3 Bypass)</option>
+                                <option value="obs_aux">OBS Virtual Audio Device</option>
+                            </select>
+                            <i class="fa-solid fa-chevron-down absolute right-3 top-3 text-slate-400 text-xs pointer-events-none"></i>
+                        </div>
+                    </div>
+
+                    <!-- Direct Monitoring Box -->
+                    <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-ear-listen text-amber-400 text-xs"></i>
+                                <div>
+                                    <div class="text-xs font-semibold text-slate-200">Прослушать себя (Direct Monitor)</div>
+                                    <div class="text-[10px] text-slate-400">Используйте наушники во избежание эхо</div>
+                                </div>
+                            </div>
+                            <button id="monitorToggleBtn" onclick="toggleMonitor()" class="px-3 py-1 rounded-lg text-xs font-bold font-mono transition-all duration-200 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                                ВКЛ
+                            </button>
+                        </div>
+                        <div class="relative">
+                            <select class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-300 focus:outline-none font-mono cursor-pointer">
+                                <option>Динамики (2- Fifine Microphone Output)</option>
+                                <option>Наушники (Realtek High Definition Audio)</option>
+                            </select>
+                            <i class="fa-solid fa-chevron-down absolute right-3 top-2.5 text-slate-400 text-xs pointer-events-none"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Virtual Cable Driver Banner Card -->
+                <div class="glass-panel p-4 rounded-2xl border border-cyan-500/20 bg-gradient-to-br from-slate-900 via-slate-900 to-cyan-950/30 shadow-lg space-y-3">
+                    <div class="flex items-start gap-3">
+                        <div class="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shrink-0">
+                            <i class="fa-solid fa-circle-info text-base"></i>
+                        </div>
+                        <div class="space-y-1">
+                            <h4 class="text-xs font-bold text-slate-200">Виртуальный аудиокабель установлен</h4>
+                            <p class="text-[11px] text-slate-400 leading-relaxed">
+                                Для трансляции обработанного AI-звука в Discord, Skype, Zoom или OBS выберите <span class="text-cyan-300 font-mono">CABLE Input</span> в настройках ввода этих программ.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 pt-1">
+                        <button onclick="downloadDriverModal()" class="flex-1 py-1.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-all flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-download text-cyan-400 text-xs"></i> VB-CABLE
+                        </button>
+                        <button onclick="confirmDriver()" class="flex-1 py-1.5 px-3 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 text-xs font-semibold border border-cyan-500/30 transition-all flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-check text-xs"></i> Драйвер готов
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- RIGHT COLUMN: SIGNAL LEVELS, METERS & SPECTRUM VISUALIZER (7 Cols) -->
+            <div class="lg:col-span-7 glass-panel p-5 rounded-2xl border border-white/10 shadow-xl space-y-5 flex flex-col justify-between">
+                
+                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-chart-simple text-cyan-400"></i>
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-200">Уровни сигнала и спектрограмма</h3>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span class="text-[10px] font-mono text-emerald-400 uppercase font-semibold">Live Feed</span>
+                    </div>
+                </div>
+
+                <!-- Real-time Canvas Visualizer (Spectrum / Waveform) -->
+                <div class="relative w-full h-28 bg-slate-950 rounded-xl border border-slate-800/80 overflow-hidden shadow-inner flex items-center justify-center">
+                    <canvas id="spectrumCanvas" class="w-full h-full block"></canvas>
+                    <div class="absolute top-2 left-2 text-[10px] font-mono text-slate-400 bg-slate-900/80 px-2 py-0.5 rounded border border-slate-800">
+                        AI Noise Suppression Grid (20Hz - 20kHz)
+                    </div>
+                </div>
+
+                <!-- Audio VU Meters Container -->
+                <div class="space-y-3.5 pt-1">
+
+                    <!-- Input Level Bar -->
+                    <div class="space-y-1">
+                        <div class="flex justify-between items-center text-xs font-mono">
+                            <span class="text-slate-300 font-semibold flex items-center gap-1.5">
+                                <span class="w-1.5 h-3 rounded-sm bg-cyan-400"></span> ВХОД (INPUT)
+                            </span>
+                            <span id="inputDbVal" class="text-cyan-400 font-bold">-24.5 дБ</span>
+                        </div>
+                        <div class="h-3.5 bg-slate-950 rounded-lg p-0.5 border border-slate-800 flex items-center">
+                            <div id="meterInput" class="vu-bar h-full rounded bg-gradient-to-r from-emerald-500 via-cyan-400 to-cyan-300 shadow-[0_0_10px_rgba(0,242,254,0.4)]" style="width: 58%;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Output Level Bar -->
+                    <div class="space-y-1">
+                        <div class="flex justify-between items-center text-xs font-mono">
+                            <span class="text-slate-300 font-semibold flex items-center gap-1.5">
+                                <span class="w-1.5 h-3 rounded-sm bg-emerald-400"></span> ВЫХОД (ОБРАБОТАННЫЙ)
+                            </span>
+                            <span id="outputDbVal" class="text-emerald-400 font-bold">-18.2 дБ</span>
+                        </div>
+                        <div class="h-3.5 bg-slate-950 rounded-lg p-0.5 border border-slate-800 flex items-center">
+                            <div id="meterOutput" class="vu-bar h-full rounded bg-gradient-to-r from-emerald-500 via-amber-400 to-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.4)]" style="width: 72%;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Compressor Reduction Bar -->
+                    <div class="space-y-1">
+                        <div class="flex justify-between items-center text-xs font-mono">
+                            <span class="text-slate-400 flex items-center gap-1.5">
+                                <span class="w-1.5 h-3 rounded-sm bg-purple-400"></span> КОМПРЕССОР — СНИЖЕНИЕ
+                            </span>
+                            <span id="compDbVal" class="text-purple-400 font-bold">-3.2 дБ</span>
+                        </div>
+                        <div class="h-2.5 bg-slate-950 rounded-lg p-0.5 border border-slate-800 flex items-center">
+                            <div id="meterComp" class="vu-bar h-full rounded bg-gradient-to-r from-purple-500 to-indigo-400" style="width: 28%;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Limiter Reduction Bar -->
+                    <div class="space-y-1">
+                        <div class="flex justify-between items-center text-xs font-mono">
+                            <span class="text-slate-400 flex items-center gap-1.5">
+                                <span class="w-1.5 h-3 rounded-sm bg-rose-400"></span> ЛИМИТЕР — СНИЖЕНИЕ
+                            </span>
+                            <span id="limiterDbVal" class="text-rose-400 font-bold">-0.0 дБ</span>
+                        </div>
+                        <div class="h-2.5 bg-slate-950 rounded-lg p-0.5 border border-slate-800 flex items-center">
+                            <div id="meterLimiter" class="vu-bar h-full rounded bg-rose-500" style="width: 0%;"></div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+
+        <!-- SECTION 3: AI AUTO-CALIBRATION & DSP FINE TUNING (GRID 12 Cols) -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+            <!-- LEFT COLUMN: INTELLIGENT AUTO-CALIBRATION WIZARD (4 Cols) -->
+            <div class="lg:col-span-4 glass-panel p-5 rounded-2xl border border-purple-500/20 bg-gradient-to-b from-slate-900 via-slate-900 to-purple-950/20 shadow-xl space-y-4 flex flex-col justify-between">
+                
+                <div>
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-wand-magic-sparkles text-purple-400"></i>
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-200">Интеллектуальная Автокалибровка</h3>
+                        </div>
+                        <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                            AI WIZARD
+                        </span>
+                    </div>
+
+                    <p class="text-xs text-slate-300 leading-relaxed">
+                        4 этапа по 5 секунд: фоновый шум, обычная речь, громкая речь, стук по клавиатуре/мышке — параметры подбираются автоматически.
+                    </p>
+
+                    <!-- Step Cards Progress -->
+                    <div class="mt-4 space-y-2 text-xs font-mono">
+                        <div id="step-1" class="p-2 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between text-slate-400">
+                            <span>1. Анализ фонового шума</span>
+                            <i class="fa-solid fa-circle-check text-slate-600 step-icon"></i>
+                        </div>
+                        <div id="step-2" class="p-2 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between text-slate-400">
+                            <span>2. Калибровка обычного голоса</span>
+                            <i class="fa-solid fa-circle-check text-slate-600 step-icon"></i>
+                        </div>
+                        <div id="step-3" class="p-2 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between text-slate-400">
+                            <span>3. Проверка динамического пика</span>
+                            <i class="fa-solid fa-circle-check text-slate-600 step-icon"></i>
+                        </div>
+                        <div id="step-4" class="p-2 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between text-slate-400">
+                            <span>4. Подавление щелчков клавиш</span>
+                            <i class="fa-solid fa-circle-check text-slate-600 step-icon"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Calibration Action Trigger Button -->
+                <div class="space-y-3 pt-2">
+                    <button id="startCalibBtn" onclick="runAutoCalibration()" class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-500 hover:from-purple-500 hover:to-cyan-400 text-white font-bold text-xs uppercase tracking-wider shadow-neon-purple transition-all duration-300 flex items-center justify-center gap-2 group">
+                        <i class="fa-solid fa-play group-hover:scale-125 transition-transform"></i>
+                        <span id="calibBtnText">АВТОНАСТРОЙКА (20 СЕК)</span>
+                    </button>
+
+                    <!-- Calibration Stats Footer -->
+                    <div class="p-3 rounded-xl bg-slate-950/80 border border-slate-800/80 text-[11px] font-mono space-y-1">
+                        <div class="flex justify-between text-slate-400">
+                            <span>Статус:</span>
+                            <span id="calibStatusText" class="text-emerald-400 font-bold">Калибровка завершена</span>
+                        </div>
+                        <div class="flex justify-between text-slate-400">
+                            <span>Пик щелчков клавиатуры:</span>
+                            <span id="keyboardPeakVal" class="text-cyan-300 font-bold">-3 дБ</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- RIGHT COLUMN: DSP FINE TUNING SLIDERS (8 Cols) -->
+            <div class="lg:col-span-8 glass-panel p-5 rounded-2xl border border-white/10 shadow-xl space-y-5">
+                
+                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-cyan-400"></i>
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-200">Тонкая настройка DSP</h3>
+                    </div>
+                    <button onclick="resetSliders()" class="text-xs font-mono text-cyan-400 hover:text-cyan-300 transition-colors flex items-center gap-1">
+                        <i class="fa-solid fa-rotate-left text-[10px]"></i> Автонастройка (моя калибровка)
+                    </button>
+                </div>
+
+                <!-- Sliders Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+                    <!-- Slider 1: Срез низких частот (HPF) -->
+                    <div class="space-y-2 p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                        <div class="flex justify-between items-center text-xs">
+                            <label class="font-medium text-slate-300 flex items-center gap-1.5">
+                                <i class="fa-solid fa-wave-square text-cyan-400 text-[11px]"></i> СРЕЗ НИЗКИХ ЧАСТОТ (HPF)
+                            </label>
+                            <span id="val-hpf" class="font-mono font-bold text-cyan-400">90 Гц</span>
+                        </div>
+                        <input type="range" id="slider-hpf" min="20" max="250" value="90" oninput="updateDSPParam('hpf', this.value, 'Гц')" class="w-full">
+                        <div class="flex justify-between text-[10px] font-mono text-slate-400">
+                            <span>20 Гц</span>
+                            <span>250 Гц</span>
+                        </div>
+                    </div>
+
+                    <!-- Slider 2: Порог шумового гейта -->
+                    <div class="space-y-2 p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                        <div class="flex justify-between items-center text-xs">
+                            <label class="font-medium text-slate-300 flex items-center gap-1.5">
+                                <i class="fa-solid fa-door-closed text-cyan-400 text-[11px]"></i> ПОРОГ ШУМОВОГО ГЕЙТА
+                            </label>
+                            <span id="val-gate" class="font-mono font-bold text-cyan-400">-38 дБ</span>
+                        </div>
+                        <input type="range" id="slider-gate" min="-60" max="-10" value="-38" oninput="updateDSPParam('gate', this.value, 'дБ')" class="w-full">
+                        <div class="flex justify-between text-[10px] font-mono text-slate-400">
+                            <span>-60 дБ</span>
+                            <span>-10 дБ</span>
+                        </div>
+                    </div>
+
+                    <!-- Slider 3: Сила шумоподавления AI -->
+                    <div class="space-y-2 p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                        <div class="flex justify-between items-center text-xs">
+                            <label class="font-medium text-slate-300 flex items-center gap-1.5">
+                                <i class="fa-solid fa-brain text-cyan-400 text-[11px]"></i> СИЛА ШУМОПОДАВЛЕНИЯ
+                            </label>
+                            <span id="val-rnnoise" class="font-mono font-bold text-cyan-400">50%</span>
+                        </div>
+                        <input type="range" id="slider-rnnoise" min="0" max="100" value="50" oninput="updateDSPParam('rnnoise', this.value, '%')" class="w-full">
+                        <div class="flex justify-between text-[10px] font-mono text-slate-400">
+                            <span>0% (Мягкое)</span>
+                            <span>100% (Агрессивное)</span>
+                        </div>
+                    </div>
+
+                    <!-- Slider 4: Целевой уровень AGC -->
+                    <div class="space-y-2 p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                        <div class="flex justify-between items-center text-xs">
+                            <label class="font-medium text-slate-300 flex items-center gap-1.5">
+                                <i class="fa-solid fa-gauge-high text-cyan-400 text-[11px]"></i> ЦЕЛЕВОЙ УРОВЕНЬ AGC
+                            </label>
+                            <span id="val-agc" class="font-mono font-bold text-cyan-400">-18 дБFS</span>
+                        </div>
+                        <input type="range" id="slider-agc" min="-30" max="-6" value="-18" oninput="updateDSPParam('agc', this.value, 'дБFS')" class="w-full">
+                        <div class="flex justify-between text-[10px] font-mono text-slate-400">
+                            <span>-30 дБFS</span>
+                            <span>-6 дБFS</span>
+                        </div>
+                    </div>
+
+                    <!-- Slider 5: Порог компрессора -->
+                    <div class="space-y-2 p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                        <div class="flex justify-between items-center text-xs">
+                            <label class="font-medium text-slate-300 flex items-center gap-1.5">
+                                <i class="fa-solid fa-compress text-cyan-400 text-[11px]"></i> ПОРОГ КОМПРЕССОРА
+                            </label>
+                            <span id="val-comp" class="font-mono font-bold text-cyan-400">-12 дБFS</span>
+                        </div>
+                        <input type="range" id="slider-comp" min="-36" max="0" value="-12" oninput="updateDSPParam('comp', this.value, 'дБFS')" class="w-full">
+                        <div class="flex justify-between text-[10px] font-mono text-slate-400">
+                            <span>-36 дБFS</span>
+                            <span>0 дБFS</span>
+                        </div>
+                    </div>
+
+                    <!-- Slider 6: Коэффициент компрессора (Ratio) -->
+                    <div class="space-y-2 p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                        <div class="flex justify-between items-center text-xs">
+                            <label class="font-medium text-slate-300 flex items-center gap-1.5">
+                                <i class="fa-solid fa-percent text-cyan-400 text-[11px]"></i> КОЭФФИЦИЕНТ КОМПРЕССОРА
+                            </label>
+                            <span id="val-ratio" class="font-mono font-bold text-cyan-400">3.0:1</span>
+                        </div>
+                        <input type="range" id="slider-ratio" min="1.0" max="10.0" step="0.1" value="3.0" oninput="updateDSPParam('ratio', this.value, ':1')" class="w-full">
+                        <div class="flex justify-between text-[10px] font-mono text-slate-400">
+                            <span>1.0:1</span>
+                            <span>10.0:1</span>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- SECTION 4: PRESETS BAR (ПРЕСЕТЫ) -->
+        <section class="glass-panel p-4 rounded-2xl border border-white/10 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                    <i class="fa-solid fa-bookmark text-base"></i>
+                </div>
+                <div>
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-200">Пресеты обработки</h3>
+                    <p class="text-[11px] text-slate-400">Быстрый выбор готовых профилей настроек</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+                <button onclick="selectPreset('auto')" id="preset-auto" class="flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-bold font-mono transition-all duration-200 bg-gradient-to-r from-purple-600/30 to-cyan-500/30 text-cyan-300 border border-cyan-400/50 shadow-neon-cyan flex items-center gap-1.5">
+                    <i class="fa-solid fa-wand-magic-sparkles text-xs"></i> МОЯ АВТОНАСТРОЙКА
+                </button>
+
+                <button onclick="selectPreset('stream')" id="preset-stream" class="flex-1 sm:flex-none px-3.5 py-2 rounded-xl text-xs font-medium font-mono text-slate-300 bg-slate-900 border border-slate-800 hover:bg-slate-800 transition-all">
+                    <i class="fa-solid fa-headset text-slate-400 mr-1"></i> Стриминг / Discord
+                </button>
+
+                <button onclick="selectPreset('podcast')" id="preset-podcast" class="flex-1 sm:flex-none px-3.5 py-2 rounded-xl text-xs font-medium font-mono text-slate-300 bg-slate-900 border border-slate-800 hover:bg-slate-800 transition-all">
+                    <i class="fa-solid fa-podcast text-slate-400 mr-1"></i> Подкаст / Теплый Голос
+                </button>
+
+                <button onclick="selectPreset('studio')" id="preset-studio" class="flex-1 sm:flex-none px-3.5 py-2 rounded-xl text-xs font-medium font-mono text-slate-300 bg-slate-900 border border-slate-800 hover:bg-slate-800 transition-all">
+                    <i class="fa-solid fa-sliders text-slate-400 mr-1"></i> Студия Clean
+                </button>
+
+                <button onclick="savePresetModal()" class="px-3 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white bg-slate-800/80 hover:bg-slate-800 border border-slate-700 transition-all" title="Сохранить текущий пресет">
+                    <i class="fa-solid fa-floppy-disk"></i>
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- App Footer -->
+    <footer class="glass-panel py-3 px-6 text-xs text-slate-500 font-mono flex flex-col sm:flex-row items-center justify-between border-t border-white/5 mt-6">
+        <div>NeuroMic AI Audio DSP System &bull; Active Engine v2.4</div>
+        <div class="flex items-center gap-4 mt-2 sm:mt-0">
+            <span class="hover:text-slate-300 cursor-pointer transition-colors"><i class="fa-solid fa-book-open mr-1"></i> Документация</span>
+            <span class="hover:text-slate-300 cursor-pointer transition-colors"><i class="fa-brands fa-discord mr-1"></i> Сообщество</span>
+            <span class="hover:text-slate-300 cursor-pointer transition-colors"><i class="fa-solid fa-shield-cat mr-1"></i> О программе</span>
+        </div>
+    </footer>
+
+    <!-- JavaScript Interactive Logic -->
+    <script>
+        // State variables
+        let engineActive = true;
+        let directMonitorActive = true;
+        let nodeStates = {
+            rnnoise: true,
+            gate: true,
+            agc: true,
+            comp: true,
+            limiter: true,
+            out: true
+        };
+
+        // DSP values object
+        let dspParams = {
+            hpf: 90,
+            gate: -38,
+            rnnoise: 50,
+            agc: -18,
+            comp: -12,
+            ratio: 3.0
+        };
+
+        // Spectrum Canvas Renderer
+        const canvas = document.getElementById('spectrumCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        let animFrame;
+        let phase = 0;
+
+        function drawSpectrum() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw grid lines
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+            ctx.lineWidth = 1;
+            for (let x = 0; x < canvas.width; x += 40) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+
+            if (!engineActive) {
+                // Off state text
+                ctx.fillStyle = '#64748b';
+                ctx.font = '12px JetBrains Mono';
+                ctx.textAlign = 'center';
+                ctx.fillText('СИГНАЛ ОТКЛЮЧЕН (MUTE)', canvas.width / 2, canvas.height / 2 + 4);
+                animFrame = requestAnimationFrame(drawSpectrum);
+                return;
+            }
+
+            phase += 0.05;
+
+            // Draw animated spectrum waveform
+            const bars = 48;
+            const barWidth = canvas.width / bars;
+
+            for (let i = 0; i < bars; i++) {
+                // Simulated dynamic FFT values
+                const noiseFactor = Math.sin(phase + i * 0.3) * 0.5 + 0.5;
+                const audioPeak = Math.sin(phase * 1.5 + i * 0.1) * 0.3 + 0.4;
+                const barHeight = (noiseFactor * 0.4 + audioPeak * 0.6) * (canvas.height * 0.75);
+
+                const x = i * barWidth;
+                const y = canvas.height - barHeight;
+
+                // Cyan to Purple Gradient
+                const gradient = ctx.createLinearGradient(0, canvas.height, 0, y);
+                gradient.addColorStop(0, 'rgba(0, 242, 254, 0.2)');
+                gradient.addColorStop(0.7, 'rgba(0, 242, 254, 0.8)');
+                gradient.addColorStop(1, '#8b5cf6');
+
+                ctx.fillStyle = gradient;
+                ctx.fillRect(x + 2, y, barWidth - 4, barHeight);
+
+                // Top Peak Line
+                ctx.fillStyle = '#00f2fe';
+                ctx.fillRect(x + 2, y - 2, barWidth - 4, 2);
+            }
+
+            // Draw smooth sine wave line overlay
+            ctx.beginPath();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#00f2fe';
+            for (let x = 0; x < canvas.width; x += 5) {
+                const y = canvas.height / 2 + Math.sin(x * 0.02 + phase) * 12 + Math.cos(x * 0.01 + phase * 2) * 8;
+                if (x === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            animFrame = requestAnimationFrame(drawSpectrum);
+        }
+
+        drawSpectrum();
+
+        // VU Meter Dynamic Randomizer Simulation
+        setInterval(() => {
+            if (!engineActive) {
+                document.getElementById('meterInput').style.width = '0%';
+                document.getElementById('meterOutput').style.width = '0%';
+                document.getElementById('meterComp').style.width = '0%';
+                document.getElementById('meterLimiter').style.width = '0%';
+                document.getElementById('inputDbVal').innerText = '-INF дБ';
+                document.getElementById('outputDbVal').innerText = '-INF дБ';
+                return;
+            }
+
+            const randomInput = Math.floor(Math.random() * 35) + 35; // 35 to 70%
+            const randomOutput = Math.min(85, Math.floor(randomInput * 1.1));
+            const randomComp = Math.floor(Math.random() * 20) + 10;
+
+            document.getElementById('meterInput').style.width = randomInput + '%';
+            document.getElementById('meterOutput').style.width = randomOutput + '%';
+            document.getElementById('meterComp').style.width = randomComp + '%';
+
+            document.getElementById('inputDbVal').innerText = `-${(70 - randomInput * 0.6).toFixed(1)} дБ`;
+            document.getElementById('outputDbVal').innerText = `-${(70 - randomOutput * 0.6).toFixed(1)} дБ`;
+            document.getElementById('compDbVal').innerText = `-${(randomComp * 0.15).toFixed(1)} дБ`;
+        }, 120);
+
+        // Toggle Global Engine Power
+        function toggleEnginePower() {
+            engineActive = !engineActive;
+            const btn = document.getElementById('mainPowerBtn');
+            const dot = document.getElementById('powerDot');
+            const text = document.getElementById('powerText');
+
+            if (engineActive) {
+                btn.className = 'flex items-center gap-2.5 px-4 py-2 rounded-xl font-medium text-xs tracking-wide transition-all duration-300 bg-cyan-500/15 text-cyan-300 border border-cyan-500/40 hover:bg-cyan-500/25 shadow-neon-cyan';
+                dot.className = 'w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_#00f2fe]';
+                text.innerText = 'МИКРОФОН АКТИВЕН';
+            } else {
+                btn.className = 'flex items-center gap-2.5 px-4 py-2 rounded-xl font-medium text-xs tracking-wide transition-all duration-300 bg-rose-500/15 text-rose-400 border border-rose-500/40 hover:bg-rose-500/25';
+                dot.className = 'w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_8px_#ef4444]';
+                text.innerText = 'МИКРОФОН ВЫКЛЮЧЕН';
+            }
+        }
+
+        // Toggle Monitoring
+        function toggleMonitor() {
+            directMonitorActive = !directMonitorActive;
+            const btn = document.getElementById('monitorToggleBtn');
+            if (directMonitorActive) {
+                btn.innerText = 'ВКЛ';
+                btn.className = 'px-3 py-1 rounded-lg text-xs font-bold font-mono transition-all duration-200 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40';
+            } else {
+                btn.innerText = 'ВЫКЛ';
+                btn.className = 'px-3 py-1 rounded-lg text-xs font-bold font-mono transition-all duration-200 bg-slate-800 text-slate-400 border border-slate-700';
+            }
+        }
+
+        // Toggle FX Chain Nodes
+        function toggleNode(key) {
+            nodeStates[key] = !nodeStates[key];
+            const el = document.getElementById(`node-${key}`);
+            const dot = el.querySelector('.node-status');
+
+            if (nodeStates[key]) {
+                el.className = 'group cursor-pointer p-3.5 rounded-xl transition-all duration-200 glass-panel border border-cyan-500/50 bg-cyan-950/20 shadow-neon-cyan relative overflow-hidden';
+                dot.className = 'w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_#00f2fe] node-status';
+            } else {
+                el.className = 'group cursor-pointer p-3.5 rounded-xl transition-all duration-200 glass-panel border border-slate-800 bg-slate-950/50 opacity-60 relative overflow-hidden';
+                dot.className = 'w-2.5 h-2.5 rounded-full bg-slate-600 node-status';
+            }
+        }
+
+        // Update DSP Parameter from sliders
+        function updateDSPParam(key, val, unit) {
+            dspParams[key] = val;
+            const textEl = document.getElementById(`val-${key}`);
+            if (textEl) textEl.innerText = `${val}${unit}`;
+
+            // Update node badge text
+            if (key === 'rnnoise') document.getElementById('badge-rnnoise-val').innerText = `${val}%`;
+            if (key === 'gate') document.getElementById('badge-gate-val').innerText = `${val} дБ`;
+            if (key === 'agc') document.getElementById('badge-agc-val').innerText = `${val} дБFS`;
+            if (key === 'ratio') document.getElementById('badge-comp-val').innerText = `${val}:1`;
+        }
+
+        // Run Simulated 20-second AI Auto-Calibration
+        function runAutoCalibration() {
+            const btn = document.getElementById('startCalibBtn');
+            const text = document.getElementById('calibBtnText');
+            const status = document.getElementById('calibStatusText');
+
+            btn.disabled = true;
+            btn.className = 'w-full py-3.5 px-4 rounded-xl bg-purple-900/50 text-purple-300 font-bold text-xs uppercase tracking-wider border border-purple-500/30 opacity-80 cursor-wait flex items-center justify-center gap-2';
+            text.innerText = 'ИДЕТ КАЛИБРОВКА (0 / 4)...';
+            status.innerText = 'Анализ аудиосигнала...';
+            status.className = 'text-amber-400 font-bold animate-pulse';
+
+            const steps = [
+                { id: 'step-1', text: '1. Анализ фонового шума', time: 1000 },
+                { id: 'step-2', text: '2. Калибровка обычного голоса', time: 2500 },
+                { id: 'step-3', text: '3. Проверка динамического пика', time: 4000 },
+                { id: 'step-4', text: '4. Подавление щелчков клавиш', time: 5500 }
+            ];
+
+            // Reset step UI styling
+            steps.forEach(s => {
+                const el = document.getElementById(s.id);
+                el.className = 'p-2 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between text-slate-400';
+                el.querySelector('.step-icon').className = 'fa-solid fa-spinner fa-spin text-cyan-400 step-icon';
+            });
+
+            steps.forEach((step, idx) => {
+                setTimeout(() => {
+                    const el = document.getElementById(step.id);
+                    el.className = 'p-2 rounded-lg bg-purple-950/40 border border-purple-500/40 flex items-center justify-between text-cyan-300 font-semibold';
+                    el.querySelector('.step-icon').className = 'fa-solid fa-circle-check text-cyan-400 step-icon';
+                    text.innerText = `ИДЕТ КАЛИБРОВКА (${idx + 1} / 4)...`;
+                }, step.time);
+            });
+
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.className = 'w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-500 hover:from-purple-500 hover:to-cyan-400 text-white font-bold text-xs uppercase tracking-wider shadow-neon-purple transition-all duration-300 flex items-center justify-center gap-2 group';
+                text.innerText = 'АВТОНАСТРОЙКА (20 СЕК)';
+                status.innerText = 'Калибровка успешно завершена!';
+                status.className = 'text-emerald-400 font-bold';
+
+                // Automatically update sliders to optimal calibrated values
+                document.getElementById('slider-hpf').value = 95;
+                updateDSPParam('hpf', 95, ' Гц');
+
+                document.getElementById('slider-gate').value = -42;
+                updateDSPParam('gate', -42, ' дБ');
+
+                document.getElementById('slider-rnnoise').value = 65;
+                updateDSPParam('rnnoise', 65, '%');
+
+                document.getElementById('slider-comp').value = -14;
+                updateDSPParam('comp', -14, ' дБFS');
+
+                document.getElementById('keyboardPeakVal').innerText = '-4.2 дБ';
+            }, 6500);
+        }
+
+        // Reset Sliders
+        function resetSliders() {
+            document.getElementById('slider-hpf').value = 90;
+            updateDSPParam('hpf', 90, ' Гц');
+
+            document.getElementById('slider-gate').value = -38;
+            updateDSPParam('gate', -38, ' дБ');
+
+            document.getElementById('slider-rnnoise').value = 50;
+            updateDSPParam('rnnoise', 50, '%');
+
+            document.getElementById('slider-agc').value = -18;
+            updateDSPParam('agc', -18, ' дБFS');
+
+            document.getElementById('slider-comp').value = -12;
+            updateDSPParam('comp', -12, ' дБFS');
+
+            document.getElementById('slider-ratio').value = 3.0;
+            updateDSPParam('ratio', 3.0, ':1');
+        }
+
+        // Select Preset
+        function selectPreset(type) {
+            // Update button styles
+            ['auto', 'stream', 'podcast', 'studio'].forEach(p => {
+                const btn = document.getElementById(`preset-${p}`);
+                if (btn) {
+                    if (p === type) {
+                        btn.className = 'flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-bold font-mono transition-all duration-200 bg-gradient-to-r from-purple-600/30 to-cyan-500/30 text-cyan-300 border border-cyan-400/50 shadow-neon-cyan flex items-center gap-1.5';
+                    } else {
+                        btn.className = 'flex-1 sm:flex-none px-3.5 py-2 rounded-xl text-xs font-medium font-mono text-slate-300 bg-slate-900 border border-slate-800 hover:bg-slate-800 transition-all';
+                    }
+                }
+            });
+
+            if (type === 'stream') {
+                document.getElementById('slider-hpf').value = 110;
+                updateDSPParam('hpf', 110, ' Гц');
+                document.getElementById('slider-rnnoise').value = 80;
+                updateDSPParam('rnnoise', 80, '%');
+                document.getElementById('slider-gate').value = -35;
+                updateDSPParam('gate', -35, ' дБ');
+            } else if (type === 'podcast') {
+                document.getElementById('slider-hpf').value = 80;
+                updateDSPParam('hpf', 80, ' Гц');
+                document.getElementById('slider-rnnoise').value = 40;
+                updateDSPParam('rnnoise', 40, '%');
+                document.getElementById('slider-comp').value = -16;
+                updateDSPParam('comp', -16, ' дБFS');
+            } else if (type === 'studio') {
+                document.getElementById('slider-hpf').value = 75;
+                updateDSPParam('hpf', 75, ' Гц');
+                document.getElementById('slider-rnnoise').value = 25;
+                updateDSPParam('rnnoise', 25, '%');
+                document.getElementById('slider-gate').value = -45;
+                updateDSPParam('gate', -45, ' дБ');
+            } else {
+                resetSliders();
+            }
+        }
+
+        // Driver Modal Notifications
+        function downloadDriverModal() {
+            window.open('https://vb-audio.com/Cable/', '_blank');
+        }
+
+        function confirmDriver() {
+            const btn = event.currentTarget;
+            btn.innerHTML = '<i class="fa-solid fa-check text-emerald-400 text-xs"></i> Драйвер подключен!';
+            btn.className = 'flex-1 py-1.5 px-3 rounded-lg bg-emerald-500/20 text-emerald-300 text-xs font-semibold border border-emerald-500/40 transition-all flex items-center justify-center gap-1.5';
+        }
+
+        function savePresetModal() {
+            const presetName = prompt('Введите название для вашего пресета:', 'Мой Голос Studio Pro');
+            if (presetName) {
+                alert(`Пресет "${presetName}" успешно сохранен в память NeuroMic!`);
+            }
+        }
+    </script>
+</body>
+</html>
