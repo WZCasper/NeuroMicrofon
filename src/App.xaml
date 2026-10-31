@@ -23,7 +23,7 @@
             <SolidColorBrush x:Key="AccentHoverBrush" Color="#FF4DF8FF"/>
             <SolidColorBrush x:Key="AccentDimBrush" Color="#FF0E7490"/>
             <SolidColorBrush x:Key="IndigoBrush" Color="#FF6366F1"/>
-            <SolidColorBrush x:Key="PurpleBrush" Color="#FFA855F7"/>
+            <SolidColorBrush x:Key="PurpleBrush" Color="#FF8B5CF6"/>
 
             <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FFE7ECF3"/>
             <SolidColorBrush x:Key="TextSecondaryBrush" Color="#FF8B95A7"/>
@@ -43,26 +43,43 @@
 
             <LinearGradientBrush x:Key="CalibrationGradientBrush" StartPoint="0,0" EndPoint="1,0">
                 <GradientStop Color="#FF6366F1" Offset="0"/>
-                <GradientStop Color="#FFA855F7" Offset="1"/>
+                <GradientStop Color="#FF8B5CF6" Offset="1"/>
             </LinearGradientBrush>
 
             <!-- Столбики визуализатора реального уровня сигнала (снизу вверх: циан → фиолетовый). -->
             <LinearGradientBrush x:Key="LevelHistoryBarBrush" StartPoint="0,1" EndPoint="0,0">
                 <GradientStop Color="#FF00F2FE" Offset="0"/>
                 <GradientStop Color="#FF00F2FE" Offset="0.6"/>
-                <GradientStop Color="#FFA855F7" Offset="1"/>
+                <GradientStop Color="#FF8B5CF6" Offset="1"/>
             </LinearGradientBrush>
+
+            <!-- Едва заметные вертикальные линии сетки позади столбиков истории
+                 сигнала — чисто декоративный штрих "про-приборной" эстетики
+                 из референса (там это сетка у холста спектрограммы), самих
+                 данных не касается. -->
+            <DrawingBrush x:Key="SignalGridLinesBrush" TileMode="Tile" Viewport="0,0,40,40" ViewportUnits="Absolute">
+                <DrawingBrush.Drawing>
+                    <GeometryDrawing>
+                        <GeometryDrawing.Pen>
+                            <Pen Brush="#08FFFFFF" Thickness="1"/>
+                        </GeometryDrawing.Pen>
+                        <GeometryDrawing.Geometry>
+                            <LineGeometry StartPoint="0,0" EndPoint="0,40"/>
+                        </GeometryDrawing.Geometry>
+                    </GeometryDrawing>
+                </DrawingBrush.Drawing>
+            </DrawingBrush>
 
             <LinearGradientBrush x:Key="LogoGradientBrush" StartPoint="0,0" EndPoint="1,1">
                 <GradientStop Color="#FF22D3EE" Offset="0"/>
                 <GradientStop Color="#FF6366F1" Offset="0.5"/>
-                <GradientStop Color="#FFA855F7" Offset="1"/>
+                <GradientStop Color="#FF8B5CF6" Offset="1"/>
             </LinearGradientBrush>
 
             <FontFamily x:Key="MonoFontFamily">Consolas</FontFamily>
 
             <DropShadowEffect x:Key="CyanGlowEffect" Color="#FF00F2FE" BlurRadius="16" ShadowDepth="0" Opacity="0.55"/>
-            <DropShadowEffect x:Key="PurpleGlowEffect" Color="#FFA855F7" BlurRadius="18" ShadowDepth="0" Opacity="0.45"/>
+            <DropShadowEffect x:Key="PurpleGlowEffect" Color="#FF8B5CF6" BlurRadius="18" ShadowDepth="0" Opacity="0.45"/>
             <DropShadowEffect x:Key="EmeraldGlowEffect" Color="#FF34D399" BlurRadius="16" ShadowDepth="0" Opacity="0.5"/>
 
             <!-- =====================================================================
@@ -80,7 +97,7 @@
             <SolidColorBrush x:Key="OverlayScrimBrush" Color="#CC0B0E16"/>
 
             <DropShadowEffect x:Key="PanelElevationEffect" Color="#FF000000" Direction="270" BlurRadius="24" ShadowDepth="7" Opacity="0.35"/>
-            <DropShadowEffect x:Key="ModalElevationEffect" Color="#FFA855F7" BlurRadius="42" ShadowDepth="0" Opacity="0.35"/>
+            <DropShadowEffect x:Key="ModalElevationEffect" Color="#FF8B5CF6" BlurRadius="42" ShadowDepth="0" Opacity="0.35"/>
 
             <!-- ===================== Конвертеры ===================== -->
             <conv:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
